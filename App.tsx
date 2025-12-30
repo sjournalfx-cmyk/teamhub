@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect } from 'react';
 import { AppContextType, AppState, DayOfWeek, TaskStatus, Task, Goal, User, UserRole, Theme, ActivityEvent, AIChatMessage, Deliverable } from './types';
 import { INITIAL_STATE } from './constants';
@@ -14,48 +13,26 @@ import WeeklyReportModal from './components/WeeklyReportModal';
 import InviteMemberModal from './components/InviteMemberModal';
 import { unblockTaskAssistant } from './services/geminiService';
 import { AppContext } from './context';
-
-const STORAGE_KEY = 'syncweek_app_state_v8'; 
+import { useAuth } from './context/AuthContext';
+import { db, supabase } from './lib/supabase';
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.tasks)) {
-            // Merge with initial state to ensure new fields are present
-            return {
-                ...INITIAL_STATE,
-                ...parsed,
-                // Ensure certain fields are always arrays if missing in old storage
-                tasks: parsed.tasks || INITIAL_STATE.tasks,
-                goals: parsed.goals || INITIAL_STATE.goals,
-                draftGoals: parsed.draftGoals || [],
-                draftTasks: parsed.draftTasks || [],
-                activityLog: parsed.activityLog || []
-            };
-        }
-      } catch (e) {
-          console.error("Failed to restore state:", e);
-      }
-    }
-    return { ...INITIAL_STATE, draftGoals: [], draftTasks: [], activityLog: [], isDraftMode: false };
-  });
+  const { session, profile, loading: authLoading, signOut: supabaseSignOut } = useAuth();
+  const [state, setState] = useState<AppState>(INITIAL_STATE);
+  const [loading, setLoading] = useState(true);
 
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('syncweek_theme') as Theme;
     return savedTheme || 'dark';
   });
-  
+
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  
+
   const [activeReviewTask, setActiveReviewTask] = useState<Task | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | undefined>(undefined);
   const [initialTaskDay, setInitialTaskDay] = useState<DayOfWeek | undefined>(undefined);
@@ -63,151 +40,307 @@ const App: React.FC = () => {
   const [goalToEdit, setGoalToEdit] = useState<Goal | undefined>(undefined);
   const [showBriefing, setShowBriefing] = useState(false);
 
+  // Fetch data from Supabase when session is available
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    if (session) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [session, profile]);
 
-  const addActivityLog = (action: string, targetName: string) => {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [tasks, goals, activityLog, profiles, joinRequests] = await Promise.all([
+        db.tasks.getAll(),
+        db.goals.getAll(),
+        db.activityLog.getAll(),
+        db.profiles.getAll(),
+        db.joinRequests.getAll().catch(() => []) // Fallback if table doesn't exist yet
+      ]);
+
+      const mappedUsers: User[] = profiles || [];
+      const mappedProfile: User | null = profile ? profiles.find((p: any) => p.id === profile.id) || null : null;
+
+      // Auto-generate customId if missing for current user
+      if (mappedProfile && !mappedProfile.customId) {
+        const newId = `KNT-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        mappedProfile.customId = newId;
+        // Update in DB
+        db.profiles.update(mappedProfile.id, { customId: newId }).catch(err => console.error('Error auto-generating ID:', err));
+      }
+
+      setState(prev => ({
+        ...prev,
+        tasks: tasks || [],
+        goals: goals || [],
+        activityLog: activityLog || [],
+        users: mappedUsers,
+        currentUser: mappedProfile || prev.currentUser,
+        joinRequests: joinRequests || []
+      }));
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addActivityLog = async (action: string, targetName: string) => {
+    if (!session?.user) return;
+
     const newEvent: ActivityEvent = {
       id: `ev-${Date.now()}`,
-      userId: state.currentUser.id,
-      userName: state.currentUser.name,
+      userId: session.user.id,
+      userName: profile?.name || session.user.email?.split('@')[0] || 'Unknown',
       action,
       targetName,
       timestamp: Date.now()
     };
-    setState(prev => ({
-      ...prev,
-      activityLog: [...(prev.activityLog || []), newEvent].slice(-50)
-    }));
+
+    try {
+      await db.activityLog.create(newEvent);
+      setState(prev => ({
+        ...prev,
+        activityLog: [newEvent, ...(prev.activityLog || [])].slice(0, 50)
+      }));
+    } catch (error) {
+      console.error('Error adding activity log:', error);
+    }
   };
 
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  
-  const login = (role: UserRole) => {
-    setUserRole(role);
-    setShowBriefing(role === 'performer');
-    addActivityLog('established connection to', role === 'admin' ? 'Command.Center' : 'Performer.Node');
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('syncweek_theme', newTheme);
   };
-  
-  const logout = () => {
-    addActivityLog('terminated session from', userRole || 'System');
-    setUserRole(null);
+
+  const logout = async () => {
+    await addActivityLog('terminated session from', profile?.role || 'System');
+    await supabaseSignOut();
     setShowBriefing(false);
   };
 
-  const moveTask = (taskId: string, targetDay: DayOfWeek) => {
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => t.id === taskId ? { ...t, day: targetDay } : t)
-    }));
+  const moveTask = async (taskId: string, targetDay: DayOfWeek) => {
+    try {
+      await db.tasks.update(taskId, { day: targetDay });
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, day: targetDay } : t)
+      }));
+    } catch (error) {
+      console.error('Error moving task:', error);
+    }
   };
 
-  const updateTaskStatus = (taskId: string, status: TaskStatus) => {
-      const task = state.tasks.find(t => t.id === taskId);
-      if (!task) return;
+  const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-      if (status === TaskStatus.Done && userRole === 'performer') {
-          setActiveReviewTask(task);
-          setIsCompletionModalOpen(true);
-          return;
-      }
+    if (status === TaskStatus.Done && profile?.role === 'performer') {
+      setActiveReviewTask(task);
+      setIsCompletionModalOpen(true);
+      return;
+    }
 
+    try {
+      await db.tasks.update(taskId, { status });
       setState(prev => ({
         ...prev,
         tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status } : t)
       }));
       addActivityLog(`set status to ${status} for`, task.title);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
   };
 
-  const toggleBreakdownStep = (taskId: string, stepIndex: number) => {
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => {
-        if (t.id === taskId) {
-          const current = t.completedSteps || [];
-          const updated = current.includes(stepIndex) 
-            ? current.filter(i => i !== stepIndex) 
-            : [...current, stepIndex];
-          return { ...t, completedSteps: updated };
-        }
-        return t;
-      })
-    }));
-  };
-
-  const submitForReview = (taskId: string, deliverables: Deliverable[], comment?: string) => {
+  const toggleBreakdownStep = async (taskId: string, stepIndex: number) => {
     const task = state.tasks.find(t => t.id === taskId);
-    if (task) addActivityLog('submitted deliverables for', task.title);
-    setState(prev => ({
+    if (!task) return;
+
+    const current = task.completedSteps || [];
+    const updated = current.includes(stepIndex)
+      ? current.filter(i => i !== stepIndex)
+      : [...current, stepIndex];
+
+    try {
+      await db.tasks.update(taskId, { completed_steps: updated });
+      setState(prev => ({
         ...prev,
-        tasks: prev.tasks.map(t => t.id === taskId ? { 
-            ...t, 
-            status: TaskStatus.ReadyForReview, 
-            deliverables,
-            completionComment: comment 
-        } : t)
-    }));
+        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, completedSteps: updated } : t)
+      }));
+    } catch (error) {
+      console.error('Error toggling breakdown step:', error);
+    }
   };
 
-  const approveTask = (taskId: string) => {
+  const submitForReview = async (taskId: string, deliverables: Deliverable[], comment?: string) => {
     const task = state.tasks.find(t => t.id === taskId);
-    if (task) addActivityLog('verified and closed', task.title);
-    setState(prev => ({
+    if (!task) return;
+
+    try {
+      await db.tasks.update(taskId, {
+        status: TaskStatus.ReadyForReview,
+        deliverables,
+        completion_comment: comment
+      });
+      addActivityLog('submitted deliverables for', task.title);
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? {
+          ...t,
+          status: TaskStatus.ReadyForReview,
+          deliverables,
+          completionComment: comment
+        } : t)
+      }));
+    } catch (error) {
+      console.error('Error submitting for review:', error);
+    }
+  };
+
+  const approveTask = async (taskId: string) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    try {
+      await db.tasks.update(taskId, { status: TaskStatus.Done });
+      addActivityLog('verified and closed', task.title);
+      setState(prev => ({
         ...prev,
         tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status: TaskStatus.Done } : t)
-    }));
-    setIsReviewModalOpen(false);
+      }));
+      setIsReviewModalOpen(false);
+    } catch (error) {
+      console.error('Error approving task:', error);
+    }
   };
 
-  const requestRevision = (taskId: string, comment: string) => {
+  const requestRevision = async (taskId: string, comment: string) => {
     const task = state.tasks.find(t => t.id === taskId);
-    if (task) addActivityLog('requested revision for', task.title);
-    setState(prev => ({
+    if (!task) return;
+
+    try {
+      await db.tasks.update(taskId, {
+        status: TaskStatus.WorkingOnIt,
+        review_comment: comment
+      });
+      addActivityLog('requested revision for', task.title);
+      setState(prev => ({
         ...prev,
-        tasks: prev.tasks.map(t => t.id === taskId ? { 
-            ...t, 
-            status: TaskStatus.WorkingOnIt, 
-            reviewComment: comment 
+        tasks: prev.tasks.map(t => t.id === taskId ? {
+          ...t,
+          status: TaskStatus.WorkingOnIt,
+          reviewComment: comment
         } : t)
-    }));
-    setIsReviewModalOpen(false);
+      }));
+      setIsReviewModalOpen(false);
+    } catch (error) {
+      console.error('Error requesting revision:', error);
+    }
   };
 
-  const addTask = (task: Task) => {
-    addActivityLog('initialized mission', task.title);
-    const isDraft = state.isDraftMode;
-    setState(prev => ({ ...prev, tasks: [...prev.tasks, { ...task, isDraft }] }));
+  const addTask = async (task: Task) => {
+    try {
+      const newTask = { ...task, user_id: session?.user.id, is_draft: state.isDraftMode };
+      const createdTask = await db.tasks.create(newTask);
+      addActivityLog('initialized mission', task.title);
+      setState(prev => ({ ...prev, tasks: [...prev.tasks, createdTask] }));
+    } catch (error) {
+      console.error('Error adding task:', error);
+    }
   };
 
-  const updateTask = (t: Task) => setState(prev => ({ ...prev, tasks: prev.tasks.map(task => task.id === t.id ? t : task) }));
-  
-  const deleteTask = (id: string) => {
+  const updateTask = async (t: Task) => {
+    try {
+      await db.tasks.update(t.id, t);
+      setState(prev => ({ ...prev, tasks: prev.tasks.map(task => task.id === t.id ? t : task) }));
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
+  const deleteTask = async (id: string) => {
     const task = state.tasks.find(t => id === t.id);
-    if (task) addActivityLog('aborted mission', task.title);
-    setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
+    if (!task) return;
+
+    try {
+      await db.tasks.delete(id);
+      addActivityLog('aborted mission', task.title);
+      setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   }
-  
-  const addGoal = (g: Goal) => {
-    addActivityLog('defined strategic goal', g.title);
-    setState(prev => ({ ...prev, goals: [...prev.goals, g] }));
+
+  const addGoal = async (g: Goal) => {
+    try {
+      const newGoal = { ...g, user_id: session?.user.id };
+      const createdGoal = await db.goals.create(newGoal);
+      addActivityLog('defined strategic goal', g.title);
+      setState(prev => ({ ...prev, goals: [...prev.goals, createdGoal] }));
+    } catch (error) {
+      console.error('Error adding goal:', error);
+    }
   };
 
-  const updateGoal = (g: Goal) => setState(prev => ({ ...prev, goals: prev.goals.map(goal => goal.id === g.id ? g : goal) }));
-  const deleteGoal = (id: string) => setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
+  const updateGoal = async (g: Goal) => {
+    try {
+      await db.goals.update(g.id, g);
+      setState(prev => ({ ...prev, goals: prev.goals.map(goal => goal.id === g.id ? g : goal) }));
+    } catch (error) {
+      console.error('Error updating goal:', error);
+    }
+  };
+
+  const deleteGoal = async (id: string) => {
+    try {
+      await db.goals.delete(id);
+      setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    }
+  };
 
   const addUser = (u: User) => {
+    // This would typically be handled by Supabase Auth invite
     addActivityLog('authorized new node', u.name);
     setState(prev => ({ ...prev, users: [...prev.users, u] }));
   };
 
-  const updateUserStatus = (emoji: string, text: string) => {
-    setState(prev => ({
-      ...prev,
-      users: prev.users.map(u => u.id === prev.currentUser.id ? { ...u, statusEmoji: emoji, statusText: text } : u),
-      currentUser: { ...prev.currentUser, statusEmoji: emoji, statusText: text }
-    }));
-    addActivityLog('updated status to', `${emoji} ${text}`);
+  const updateUserStatus = async (emoji: string, text: string) => {
+    if (!session?.user) return;
+
+    try {
+      await db.profiles.update(session.user.id, { statusEmoji: emoji, statusText: text });
+      setState(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.id === session.user.id ? { ...u, statusEmoji: emoji, statusText: text } : u),
+        currentUser: { ...prev.currentUser, statusEmoji: emoji, statusText: text }
+      }));
+      addActivityLog('updated status to', `${emoji} ${text}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
+  };
+
+  const updateUser = async (user: User) => {
+    try {
+      await db.profiles.update(user.id, user);
+
+      // Update local state
+      setState(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.id === user.id ? user : u),
+        currentUser: prev.currentUser.id === user.id ? user : prev.currentUser
+      }));
+
+      addActivityLog('updated profile for', user.name);
+    } catch (error) {
+      console.error('Error updating user:', error);
+    }
   };
 
   const askRubberDuck = async (taskId: string) => {
@@ -215,15 +348,25 @@ const App: React.FC = () => {
     if (!task) return;
     addActivityLog('requested tactical analysis for', task.title);
     const analysis = await unblockTaskAssistant(task);
-    setState(prev => ({ 
-      ...prev, 
-      tasks: prev.tasks.map(t => t.id === taskId ? { 
-        ...t, 
-        breakdown: analysis.steps, 
-        aiSuggestions: analysis.suggestions,
-        completedSteps: [] 
-      } : t) 
-    }));
+
+    try {
+      await db.tasks.update(taskId, {
+        breakdown: analysis.steps,
+        ai_suggestions: analysis.suggestions,
+        completed_steps: []
+      });
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? {
+          ...t,
+          breakdown: analysis.steps,
+          aiSuggestions: analysis.suggestions,
+          completedSteps: []
+        } : t)
+      }));
+    } catch (error) {
+      console.error('Error asking rubber duck:', error);
+    }
   };
 
   const openReviewModal = (task: Task) => {
@@ -246,51 +389,80 @@ const App: React.FC = () => {
     addActivityLog(enabled ? 'activated draft mode' : 'deactivated draft mode', 'Workspace');
   };
 
-  const dispatchWeek = () => {
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => t.isDraft ? { ...t, isDraft: false, isAccepted: false } : t)
-    }));
-    addActivityLog('dispatched weekly instructions', 'Fleet');
+  const dispatchWeek = async () => {
+    try {
+      // Update all draft tasks in Supabase
+      const draftTasks = state.tasks.filter(t => t.isDraft);
+      await Promise.all(draftTasks.map(t => db.tasks.update(t.id, { is_draft: false, is_accepted: false })));
+
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(t => t.isDraft ? { ...t, isDraft: false, isAccepted: false } : t)
+      }));
+      addActivityLog('dispatched weekly instructions', 'Fleet');
+    } catch (error) {
+      console.error('Error dispatching week:', error);
+    }
   };
 
-  const acceptTask = (taskId: string) => {
-    const task = state.tasks.find(t => t.id === taskId);
-    if (task) addActivityLog('accepted directive', task.title);
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => t.id === taskId ? { ...t, isAccepted: true } : t)
-    }));
-  };
-
-  const toggleTaskBlocker = (taskId: string, message?: string, suggestion?: string) => {
+  const acceptTask = async (taskId: string) => {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    if (!task.isBlocked) {
-      addActivityLog('reported friction for', task.title);
-    } else {
-      addActivityLog('resolved friction for', task.title);
+    try {
+      await db.tasks.update(taskId, { is_accepted: true });
+      addActivityLog('accepted directive', task.title);
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, isAccepted: true } : t)
+      }));
+    } catch (error) {
+      console.error('Error accepting task:', error);
     }
+  };
 
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => t.id === taskId ? { 
-        ...t, 
-        isBlocked: !t.isBlocked, 
-        blockerMessage: message, 
-        blockerSuggestion: suggestion,
-        status: !t.isBlocked ? TaskStatus.Stuck : TaskStatus.WorkingOnIt
-      } : t)
-    }));
+  const toggleTaskBlocker = async (taskId: string, message?: string, suggestion?: string) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const isBlocked = !task.isBlocked;
+    const status = isBlocked ? TaskStatus.Stuck : TaskStatus.WorkingOnIt;
+
+    try {
+      await db.tasks.update(taskId, {
+        is_blocked: isBlocked,
+        blocker_message: message,
+        blocker_suggestion: suggestion,
+        status
+      });
+
+      if (isBlocked) {
+        addActivityLog('reported friction for', task.title);
+      } else {
+        addActivityLog('resolved friction for', task.title);
+      }
+
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? {
+          ...t,
+          isBlocked: isBlocked,
+          blockerMessage: message,
+          blockerSuggestion: suggestion,
+          status
+        } : t)
+      }));
+    } catch (error) {
+      console.error('Error toggling task blocker:', error);
+    }
   };
 
   const toggleFocus = (taskId: string) => {
     setState(prev => {
       const isStarting = prev.activeFocusTaskId !== taskId;
       if (isStarting) {
-          const task = prev.tasks.find(t => t.id === taskId);
-          if (task) addActivityLog('entered deep focus on', task.title);
+        const task = prev.tasks.find(t => t.id === taskId);
+        if (task) addActivityLog('entered deep focus on', task.title);
       }
       return {
         ...prev,
@@ -300,65 +472,135 @@ const App: React.FC = () => {
     });
   };
 
+  const sendJoinRequest = async (email: string, role: string) => {
+    try {
+      const newRequest = await db.joinRequests.create({
+        email,
+        role,
+        status: 'pending',
+        invitedBy: session?.user.id,
+        createdAt: new Date().toISOString()
+      });
+      setState(prev => ({
+        ...prev,
+        joinRequests: [newRequest, ...prev.joinRequests]
+      }));
+      addActivityLog('sent join authorization to', email);
+    } catch (error) {
+      console.error('Error sending join request:', error);
+    }
+  };
+
+  const approveJoinRequest = async (requestId: string) => {
+    try {
+      await db.joinRequests.update(requestId, { status: 'approved' });
+      setState(prev => ({
+        ...prev,
+        joinRequests: prev.joinRequests.map(r => r.id === requestId ? { ...r, status: 'approved' } : r)
+      }));
+      const request = state.joinRequests.find(r => r.id === requestId);
+      if (request) addActivityLog('approved join request for', request.email);
+    } catch (error) {
+      console.error('Error approving join request:', error);
+    }
+  };
+
+  const rejectJoinRequest = async (requestId: string) => {
+    try {
+      await db.joinRequests.update(requestId, { status: 'rejected' });
+      setState(prev => ({
+        ...prev,
+        joinRequests: prev.joinRequests.map(r => r.id === requestId ? { ...r, status: 'rejected' } : r)
+      }));
+      const request = state.joinRequests.find(r => r.id === requestId);
+      if (request) addActivityLog('rejected join request for', request.email);
+    } catch (error) {
+      console.error('Error rejecting join request:', error);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-obsidian-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-neon-green/20 border-t-neon-green rounded-full animate-spin"></div>
+          <div className="text-[10px] font-black text-neon-green uppercase tracking-widest animate-pulse">Initializing System...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const userRole = profile?.role || null;
+
   return (
-    <AppContext.Provider value={{ 
-        state, userRole, theme, toggleTheme, logout, moveTask, toggleFocus, updateTaskStatus, 
-        addTask, updateTask, deleteTask, 
-        openTaskModal: (t, day, assignee, scheduledAt) => { 
-          if (t && t.status === TaskStatus.ReadyForReview && userRole === 'admin') {
-            openReviewModal(t);
-          } else {
-            setTaskToEdit(t); 
-            setInitialTaskDay(day); 
-            setInitialScheduledAt(scheduledAt);
-            setIsTaskModalOpen(true); 
-          }
-        },
-        viewEvidence: (t) => openReviewModal(t),
-        addGoal, updateGoal, deleteGoal, 
-        openGoalModal: (g) => { setGoalToEdit(g); setIsGoalModalOpen(true); },
-        addUser,
-        updateUser: (u) => setState(p => ({ ...p, users: p.users.map(user => user.id === u.id ? u : user) })),
-        deleteUser: (id) => setState(p => ({ ...p, users: p.users.filter(u => u.id !== id) })),
-        updateUserStatus,
-        toggleTaskBlocker,
-        submitForReview, approveTask, requestRevision,
-        addDraftGoal, promoteDraftGoal, removeDraftGoal, askRubberDuck, toggleBreakdownStep,
-        openReportModal: () => setIsReportModalOpen(true),
-        setDraftMode,
-        dispatchWeek,
-        acceptTask
+    <AppContext.Provider value={{
+      state, userRole, theme, toggleTheme, logout, moveTask, toggleFocus, updateTaskStatus,
+      addTask, updateTask, deleteTask,
+      openTaskModal: (t, day, assignee, scheduledAt) => {
+        if (t && t.status === TaskStatus.ReadyForReview && userRole === 'admin') {
+          openReviewModal(t);
+        } else {
+          setTaskToEdit(t);
+          setInitialTaskDay(day);
+          setInitialScheduledAt(scheduledAt);
+          setIsTaskModalOpen(true);
+        }
+      },
+      viewEvidence: (t) => openReviewModal(t),
+      addGoal, updateGoal, deleteGoal,
+      openGoalModal: (g) => { setGoalToEdit(g); setIsGoalModalOpen(true); },
+      addUser,
+      updateUser,
+      deleteUser: async (id) => {
+        try {
+          await db.profiles.delete(id);
+          setState(p => ({ ...p, users: p.users.filter(u => u.id !== id) }));
+        } catch (error) {
+          console.error('Error deleting user:', error);
+        }
+      },
+      updateUserStatus,
+      sendJoinRequest,
+      approveJoinRequest,
+      rejectJoinRequest,
+      toggleTaskBlocker,
+      submitForReview, approveTask, requestRevision,
+      addDraftGoal, promoteDraftGoal, removeDraftGoal, askRubberDuck, toggleBreakdownStep,
+      openReportModal: () => setIsReportModalOpen(true),
+      setDraftMode,
+      dispatchWeek,
+      acceptTask
     }}>
-      {!userRole ? (
-        <LoginPage onLogin={login} />
+      {!session ? (
+        <LoginPage onLogin={() => { }} />
       ) : (
         <>
           {userRole === 'admin' ? <AdminDashboard /> : <PerformerDashboard />}
           {showBriefing && <MondayMorningModal isOpen={showBriefing} onClose={() => setShowBriefing(false)} />}
         </>
       )}
-      
-      <NewTaskModal 
-        isOpen={isTaskModalOpen} 
-        onClose={() => setIsTaskModalOpen(false)} 
-        taskToEdit={taskToEdit} 
+
+      <NewTaskModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        taskToEdit={taskToEdit}
         initialDay={initialTaskDay}
         initialScheduledAt={initialScheduledAt}
       />
       <NewGoalModal isOpen={isGoalModalOpen} onClose={() => setIsGoalModalOpen(false)} goalToEdit={goalToEdit} />
       <CompletionModal isOpen={isCompletionModalOpen} onClose={() => setIsCompletionModalOpen(false)} task={activeReviewTask} />
-      <ReviewEvidenceModal 
-        isOpen={isReviewModalOpen} 
-        onClose={() => setIsReviewModalOpen(false)} 
-        task={activeReviewTask} 
+      <ReviewEvidenceModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        task={activeReviewTask}
       />
-      <WeeklyReportModal 
-        isOpen={isReportModalOpen} 
-        onClose={() => setIsReportModalOpen(false)} 
+      <WeeklyReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
       />
-      <InviteMemberModal 
-        isOpen={isInviteModalOpen} 
-        onClose={() => setIsInviteModalOpen(false)} 
+      <InviteMemberModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
       />
     </AppContext.Provider>
   );

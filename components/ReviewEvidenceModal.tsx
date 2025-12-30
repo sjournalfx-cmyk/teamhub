@@ -39,10 +39,12 @@ const ReviewEvidenceModal: React.FC<{
   };
 
   const downloadFile = (d: Deliverable) => {
-    if (!d.data) return;
+    const fileUrl = d.url || d.data;
+    if (!fileUrl) return;
     const link = document.createElement('a');
-    link.href = d.data;
+    link.href = fileUrl;
     link.download = d.fileName || 'deliverable';
+    link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -51,7 +53,7 @@ const ReviewEvidenceModal: React.FC<{
   return (
     <div className="fixed inset-0 bg-obsidian-950/90 backdrop-blur-xl z-[150] flex items-center justify-center p-0 md:p-4">
       <div className="glass-terminal rounded-none md:rounded-sm w-full md:max-w-5xl border-0 md:border md:border-white/10 shadow-2xl overflow-hidden font-mono flex flex-col h-full md:h-auto md:max-h-[95vh]">
-        
+
         {/* Header */}
         <div className="p-4 md:p-6 border-b border-white/5 bg-white/5 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
@@ -90,7 +92,7 @@ const ReviewEvidenceModal: React.FC<{
               {task.completionComment && (
                 <div className="space-y-3 md:space-y-4">
                   <div className="text-[9px] md:text-[10px] font-black text-neon-green uppercase tracking-widest flex items-center gap-2">
-                      <MessageSquare size={12} /> Deployment_Closing_Statement
+                    <MessageSquare size={12} /> Deployment_Closing_Statement
                   </div>
                   <div className="text-xs md:text-[13px] text-white font-bold leading-relaxed bg-neon-green/5 p-4 md:p-6 border border-neon-green/20 rounded-sm italic">
                     "{task.completionComment}"
@@ -100,7 +102,7 @@ const ReviewEvidenceModal: React.FC<{
 
               <div className="space-y-3 md:space-y-4">
                 <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <FileText size={12} /> Original_Technical_Briefing
+                  <FileText size={12} /> Original_Technical_Briefing
                 </div>
                 <div className="text-[10px] md:text-[11px] text-slate-400 leading-relaxed bg-black/40 p-4 md:p-6 border border-white/5 rounded-sm h-32 md:h-40 overflow-y-auto custom-scrollbar">
                   {task.description || "No parameters provided."}
@@ -110,65 +112,65 @@ const ReviewEvidenceModal: React.FC<{
 
             {/* Right Sector: Evidence Feed */}
             <div className="lg:col-span-7 space-y-6 md:space-y-8">
-                <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between">
-                   <span>Evidence_Payload ({deliverables.length} Assets)</span>
-                   <Clock size={12} />
-                </div>
+              <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between">
+                <span>Evidence_Payload ({deliverables.length} Assets)</span>
+                <Clock size={12} />
+              </div>
 
-                <div className="space-y-6 md:space-y-8 pb-10">
-                   {deliverables.length === 0 ? (
-                     <div className="h-full border border-dashed border-white/5 flex flex-col items-center justify-center py-16 md:py-20 opacity-20 gap-4">
-                        <Layers size={32} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">No visual assets</span>
-                     </div>
-                   ) : (
-                     deliverables.map((d, idx) => (
-                       <div key={d.id} className="space-y-3 md:space-y-4 border-b border-white/5 pb-6 last:border-0">
-                          <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-2 md:gap-3 min-w-0">
-                                <div className="p-1.5 md:p-2 bg-white/5 border border-white/10 text-neon-cyan shrink-0">
-                                   {d.type === 'link' && <ExternalLink size={12} />}
-                                   {d.type === 'image' && <ImageIcon size={12} />}
-                                   {d.type === 'comparison' && <Layers size={12} />}
-                                   {d.type === 'csv' && <FileSpreadsheet size={12} />}
-                                   {d.type === 'pdf' && <FileText size={12} />}
-                                </div>
-                                <div className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-widest truncate">
-                                   Asset_0{idx + 1} / {d.type.toUpperCase()}
-                                </div>
-                             </div>
-                             <div className="text-[7px] md:text-[8px] font-black text-slate-600 uppercase tracking-widest shrink-0">
-                                {new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                             </div>
+              <div className="space-y-6 md:space-y-8 pb-10">
+                {deliverables.length === 0 ? (
+                  <div className="h-full border border-dashed border-white/5 flex flex-col items-center justify-center py-16 md:py-20 opacity-20 gap-4">
+                    <Layers size={32} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">No visual assets</span>
+                  </div>
+                ) : (
+                  deliverables.map((d, idx) => (
+                    <div key={d.id} className="space-y-3 md:space-y-4 border-b border-white/5 pb-6 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                          <div className="p-1.5 md:p-2 bg-white/5 border border-white/10 text-neon-cyan shrink-0">
+                            {d.type === 'link' && <ExternalLink size={12} />}
+                            {d.type === 'image' && <ImageIcon size={12} />}
+                            {d.type === 'comparison' && <Layers size={12} />}
+                            {d.type === 'csv' && <FileSpreadsheet size={12} />}
+                            {d.type === 'pdf' && <FileText size={12} />}
                           </div>
+                          <div className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-widest truncate">
+                            Asset_0{idx + 1} / {d.type.toUpperCase()}
+                          </div>
+                        </div>
+                        <div className="text-[7px] md:text-[8px] font-black text-slate-600 uppercase tracking-widest shrink-0">
+                          {new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
 
-                          <div className="bg-black/60 border border-white/5 rounded-sm overflow-hidden min-h-[220px] md:min-h-[300px] flex items-center justify-center relative">
-                             {d.type === 'image' && <img src={d.data} className="w-full h-full object-contain p-2 md:p-4" />}
-                             {d.type === 'comparison' && <BeforeAfterSlider before={d.beforeData!} after={d.afterData!} />}
-                             {(d.type === 'csv' || d.type === 'pdf') && (
-                                <div className="text-center p-8 md:p-12 space-y-4">
-                                   <div className="w-10 h-10 md:w-12 md:h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 border border-white/10">
-                                      {d.type === 'csv' ? <FileSpreadsheet size={20} className="text-neon-green" /> : <FileText size={20} className="text-neon-cyan" />}
-                                   </div>
-                                   <div className="text-[10px] font-bold text-white truncate max-w-[200px] md:max-w-xs mx-auto">{d.fileName}</div>
-                                   <button onClick={() => downloadFile(d)} className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/5 border border-white/10 text-[8px] font-black text-white uppercase tracking-widest hover:bg-white/10 mx-auto">
-                                      <Download size={10} /> Extract
-                                   </button>
-                                </div>
-                             )}
-                             {d.type === 'link' && (
-                                <div className="text-center p-8 md:p-12 space-y-3">
-                                   <ExternalLink size={24} className="text-neon-cyan/30 mx-auto mb-3" />
-                                   <a href={d.url} target="_blank" rel="noopener" className="block text-[10px] font-bold text-neon-cyan underline truncate max-w-[180px] md:max-w-sm mx-auto">
-                                      {d.url}
-                                   </a>
-                                </div>
-                             )}
+                      <div className="bg-black/60 border border-white/5 rounded-sm overflow-hidden min-h-[220px] md:min-h-[300px] flex items-center justify-center relative">
+                        {d.type === 'image' && <img src={d.url || d.data} className="w-full h-full object-contain p-2 md:p-4" />}
+                        {d.type === 'comparison' && <BeforeAfterSlider before={d.beforeData!} after={d.afterData!} />}
+                        {(d.type === 'csv' || d.type === 'pdf') && (
+                          <div className="text-center p-8 md:p-12 space-y-4">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 border border-white/10">
+                              {d.type === 'csv' ? <FileSpreadsheet size={20} className="text-neon-green" /> : <FileText size={20} className="text-neon-cyan" />}
+                            </div>
+                            <div className="text-[10px] font-bold text-white truncate max-w-[200px] md:max-w-xs mx-auto">{d.fileName}</div>
+                            <button onClick={() => downloadFile(d)} className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/5 border border-white/10 text-[8px] font-black text-white uppercase tracking-widest hover:bg-white/10 mx-auto">
+                              <Download size={10} /> Extract
+                            </button>
                           </div>
-                       </div>
-                     ))
-                   )}
-                </div>
+                        )}
+                        {d.type === 'link' && (
+                          <div className="text-center p-8 md:p-12 space-y-3">
+                            <ExternalLink size={24} className="text-neon-cyan/30 mx-auto mb-3" />
+                            <a href={d.url} target="_blank" rel="noopener" className="block text-[10px] font-bold text-neon-cyan underline truncate max-w-[180px] md:max-w-sm mx-auto">
+                              {d.url}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
@@ -178,7 +180,7 @@ const ReviewEvidenceModal: React.FC<{
                 <div className="flex items-center gap-2 text-[10px] md:text-[12px] font-black text-rose-500 uppercase tracking-widest">
                   <ShieldAlert size={16} /> Rejection Parameters
                 </div>
-                <textarea 
+                <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Specify required corrections..."

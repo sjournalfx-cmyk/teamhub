@@ -1,15 +1,15 @@
 
 import React, { useContext, useState } from 'react';
-// Corrected import source for AppContext
 import { AppContext } from '../context';
 import { TaskStatus, Deliverable, Task } from '../types';
-import { LogOut, Sun, Moon, Cpu, ChevronDown, ChevronUp, Loader2, Sparkles, AlertOctagon, Terminal, ListTree, Radio, Check, Paperclip, Download, ExternalLink, FileText, Smile } from 'lucide-react';
+import { LogOut, Sun, Moon, Cpu, ChevronDown, ChevronUp, Loader2, Sparkles, AlertOctagon, Terminal, ListTree, Radio, Check, Paperclip, Download, ExternalLink, FileText, Smile, Settings } from 'lucide-react';
 import RichText from './RichText';
 import Tooltip from './Tooltip';
+import SettingsView from './SettingsView';
 
-const StatusButton: React.FC<{ 
-  status: TaskStatus, 
-  active: boolean, 
+const StatusButton: React.FC<{
+  status: TaskStatus,
+  active: boolean,
   onClick: () => void,
   disabled?: boolean
 }> = ({ status, active, onClick, disabled }) => {
@@ -49,6 +49,7 @@ const PerformerDashboard: React.FC = () => {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null);
   const [isVibePickerOpen, setIsVibePickerOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const myTasks = state.tasks.filter(t => t.assigneeId === state.currentUser.id && !t.isDraft);
   const unacceptedTasks = myTasks.filter(t => !t.isAccepted);
@@ -80,8 +81,8 @@ const PerformerDashboard: React.FC = () => {
 
   const downloadFile = (d: Deliverable) => {
     if (d.type === 'link') {
-        window.open(d.url, '_blank');
-        return;
+      window.open(d.url, '_blank');
+      return;
     }
     if (!d.data) return;
     const link = document.createElement('a');
@@ -104,7 +105,6 @@ const PerformerDashboard: React.FC = () => {
   };
 
   const renderTaskDetails = (task: Task) => {
-    const isThinking = processingTaskId === task.id;
     const resourcesCount = task.resources?.length || 0;
 
     return (
@@ -112,81 +112,81 @@ const PerformerDashboard: React.FC = () => {
         <div className="pt-3 border-t border-white/5 space-y-4">
           {task.description && (
             <div className="space-y-2">
-               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Description</span>
-               <p className="text-[11px] text-slate-400 leading-relaxed font-mono">{task.description}</p>
+              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Description</span>
+              <p className="text-[11px] text-slate-400 leading-relaxed font-mono">{task.description}</p>
             </div>
           )}
 
           {resourcesCount > 0 && (
             <div className="space-y-2">
-               <span className="text-[8px] font-black text-neon-cyan uppercase tracking-widest">Technical Documentation</span>
-               <div className="grid grid-cols-1 gap-1">
-                  {task.resources?.map(res => (
-                     <button 
-                       key={res.id}
-                       onClick={(e) => { e.stopPropagation(); downloadFile(res); }}
-                       className="flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:bg-neon-cyan/5 hover:border-neon-cyan/30 transition-all group/res"
-                     >
-                        <div className="flex items-center gap-2 overflow-hidden">
-                           {res.type === 'link' ? <ExternalLink size={12} className="text-neon-cyan shrink-0" /> : <Download size={12} className="text-neon-cyan shrink-0" />}
-                           <span className="text-[10px] font-mono text-slate-300 truncate group-hover/res:text-white">{res.url || res.fileName}</span>
-                        </div>
-                     </button>
-                  ))}
-               </div>
+              <span className="text-[8px] font-black text-neon-cyan uppercase tracking-widest">Technical Documentation</span>
+              <div className="grid grid-cols-1 gap-1">
+                {task.resources?.map(res => (
+                  <button
+                    key={res.id}
+                    onClick={(e) => { e.stopPropagation(); downloadFile(res); }}
+                    className="flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:bg-neon-cyan/5 hover:border-neon-cyan/30 transition-all group/res"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      {res.type === 'link' ? <ExternalLink size={12} className="text-neon-cyan shrink-0" /> : <Download size={12} className="text-neon-cyan shrink-0" />}
+                      <span className="text-[10px] font-mono text-slate-300 truncate group-hover/res:text-white">{res.url || res.fileName}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
           {task.breakdown && (
             <div className="p-3 bg-black/40 border border-white/5 rounded-sm space-y-3">
-                <div className="flex items-center gap-2 text-[9px] font-black text-neon-green uppercase tracking-widest">
-                  <ListTree size={12} /> Tactical Sequence
-                </div>
-                <div className="space-y-3">
-                  {task.breakdown.map((step, i) => {
-                    const isStepDone = task.completedSteps?.includes(i);
-                    return (
-                      <div key={i} className="flex items-start gap-3 group/step">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); toggleBreakdownStep(task.id, i); }}
-                          className={`shrink-0 w-5 h-5 flex items-center justify-center rounded-full border text-[9px] font-black transition-all ${isStepDone ? 'bg-neon-green border-neon-green text-obsidian-950' : 'bg-white/5 border-white/10 text-slate-600'}`}
-                        >
-                          {isStepDone ? <Check size={8} /> : i+1}
-                        </button>
-                        <span className={`text-[11px] pt-0.5 leading-snug ${isStepDone ? 'text-slate-600 line-through' : 'text-slate-300'}`}>{step}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="flex items-center gap-2 text-[9px] font-black text-neon-green uppercase tracking-widest">
+                <ListTree size={12} /> Tactical Sequence
+              </div>
+              <div className="space-y-3">
+                {task.breakdown.map((step, i) => {
+                  const isStepDone = task.completedSteps?.includes(i);
+                  return (
+                    <div key={i} className="flex items-start gap-3 group/step">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleBreakdownStep(task.id, i); }}
+                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded-full border text-[9px] font-black transition-all ${isStepDone ? 'bg-neon-green border-neon-green text-obsidian-950' : 'bg-white/5 border-white/10 text-slate-600'}`}
+                      >
+                        {isStepDone ? <Check size={8} /> : i + 1}
+                      </button>
+                      <span className={`text-[11px] pt-0.5 leading-snug ${isStepDone ? 'text-slate-600 line-through' : 'text-slate-300'}`}>{step}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
           {task.isAccepted && (
             <div className="space-y-2">
-               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Update Progress</span>
-               <div className="flex gap-1">
-                  <StatusButton status={TaskStatus.WorkingOnIt} active={task.status === TaskStatus.WorkingOnIt} onClick={() => updateTaskStatus(task.id, TaskStatus.WorkingOnIt)} />
-                  <StatusButton status={TaskStatus.ReadyForReview} active={task.status === TaskStatus.ReadyForReview} onClick={() => updateTaskStatus(task.id, TaskStatus.ReadyForReview)} />
-                  <StatusButton status={TaskStatus.Done} active={task.status === TaskStatus.Done} onClick={() => updateTaskStatus(task.id, TaskStatus.Done)} />
-               </div>
-               <button 
-                 onClick={(e) => { e.stopPropagation(); handleBlockerHotline(task.id); }}
-                 className={`w-full py-3 mt-1 border text-[9px] font-black uppercase tracking-widest rounded-sm ${task.isBlocked ? 'bg-rose-600 text-white' : 'text-rose-500 border-rose-500/30'}`}
-               >
-                 Report Blocker
-               </button>
+              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Update Progress</span>
+              <div className="flex gap-1">
+                <StatusButton status={TaskStatus.WorkingOnIt} active={task.status === TaskStatus.WorkingOnIt} onClick={() => updateTaskStatus(task.id, TaskStatus.WorkingOnIt)} />
+                <StatusButton status={TaskStatus.ReadyForReview} active={task.status === TaskStatus.ReadyForReview} onClick={() => updateTaskStatus(task.id, TaskStatus.ReadyForReview)} />
+                <StatusButton status={TaskStatus.Done} active={task.status === TaskStatus.Done} onClick={() => updateTaskStatus(task.id, TaskStatus.Done)} />
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleBlockerHotline(task.id); }}
+                className={`w-full py-3 mt-1 border text-[9px] font-black uppercase tracking-widest rounded-sm ${task.isBlocked ? 'bg-rose-600 text-white' : 'text-rose-500 border-rose-500/30'}`}
+              >
+                Report Blocker
+              </button>
             </div>
           )}
 
           {!task.isAccepted && (
-             <div className="pt-2">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); acceptTask(task.id); }}
-                  className="w-full py-4 bg-amber-500 text-obsidian-950 text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-lg flex items-center justify-center gap-2"
-                >
-                  <Radio size={14} className="animate-pulse" /> Acknowledge Directive
-                </button>
-             </div>
+            <div className="pt-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); acceptTask(task.id); }}
+                className="w-full py-4 bg-amber-500 text-obsidian-950 text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <Radio size={14} className="animate-pulse" /> Accept Request
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -201,6 +201,25 @@ const PerformerDashboard: React.FC = () => {
     { emoji: '🎧', text: 'Listening' },
     { emoji: '🏃', text: 'Step Away' },
   ];
+
+  if (showSettings) {
+    return (
+      <div className="h-screen overflow-y-auto custom-scrollbar bg-obsidian-950 text-slate-300 flex flex-col font-sans">
+        <header className="flex justify-between items-center p-4 md:p-8 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowSettings(false)}
+              className="p-2 text-slate-500 hover:text-white border border-white/10 rounded transition-all"
+            >
+              <ChevronDown size={16} className="rotate-90" />
+            </button>
+            <h1 className="text-sm font-black text-white uppercase tracking-wider">Settings</h1>
+          </div>
+        </header>
+        <SettingsView />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen overflow-y-auto custom-scrollbar bg-obsidian-950 text-slate-300 flex flex-col font-sans p-4 md:p-8 pb-32">
@@ -218,11 +237,17 @@ const PerformerDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setIsVibePickerOpen(!isVibePickerOpen)}
             className={`p-2 border rounded transition-all ${isVibePickerOpen ? 'bg-neon-cyan text-obsidian-950 border-neon-cyan' : 'text-slate-500 hover:text-white border-white/10'}`}
           >
             <Smile size={16} />
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 text-slate-500 hover:text-white border border-white/10 rounded transition-all"
+          >
+            <Settings size={16} />
           </button>
           <button onClick={toggleTheme} className="p-2 text-slate-500 hover:text-white border border-white/10 rounded transition-all">
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
@@ -236,19 +261,19 @@ const PerformerDashboard: React.FC = () => {
       {/* Vibe Picker Overlay */}
       {isVibePickerOpen && (
         <div className="mb-8 p-4 glass-layer-2 border-neon-cyan/30 animate-in slide-in-from-top-4 duration-300">
-           <div className="text-[8px] font-black text-neon-cyan uppercase tracking-widest mb-3">Broadcast Your Vibe</div>
-           <div className="grid grid-cols-3 gap-2">
-              {vibes.map((v, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => updateVibe(v.emoji, v.text)}
-                  className="flex flex-col items-center gap-1 p-3 bg-white/5 border border-white/5 hover:border-neon-cyan/50 hover:bg-neon-cyan/5 transition-all"
-                >
-                  <span className="text-xl">{v.emoji}</span>
-                  <span className="text-[8px] font-bold text-slate-400 uppercase truncate w-full text-center">{v.text}</span>
-                </button>
-              ))}
-           </div>
+          <div className="text-[8px] font-black text-neon-cyan uppercase tracking-widest mb-3">Broadcast Your Vibe</div>
+          <div className="grid grid-cols-3 gap-2">
+            {vibes.map((v, i) => (
+              <button
+                key={i}
+                onClick={() => updateVibe(v.emoji, v.text)}
+                className="flex flex-col items-center gap-1 p-3 bg-white/5 border border-white/5 hover:border-neon-cyan/50 hover:bg-neon-cyan/5 transition-all"
+              >
+                <span className="text-xl">{v.emoji}</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase truncate w-full text-center">{v.text}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -257,44 +282,44 @@ const PerformerDashboard: React.FC = () => {
         {unacceptedTasks.length > 0 && (
           <section className="mb-8 md:mb-12">
             <div className="flex items-center gap-2 mb-4">
-               <Radio size={14} className="text-amber-500 animate-pulse" />
-               <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">New_Directives ({unacceptedTasks.length})</h2>
+              <Radio size={14} className="text-amber-500 animate-pulse" />
+              <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">New_Requests ({unacceptedTasks.length})</h2>
             </div>
             <div className="space-y-3">
-               {unacceptedTasks.map(task => {
-                 const isExpanded = expandedTaskId === task.id;
-                 const resourcesCount = task.resources?.length || 0;
-                 return (
-                    <div key={task.id} className={`glass-terminal border transition-all duration-300 overflow-hidden ${isExpanded ? 'border-amber-500 ring-1 ring-amber-500/20' : 'border-amber-500/20 bg-amber-500/5'}`}>
-                        <div onClick={() => toggleExpand(task.id)} className="p-4 flex items-center justify-between cursor-pointer">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-2 h-2 rounded-sm shrink-0 bg-amber-500 animate-pulse"></div>
-                                <div className="min-w-0">
-                                    <h3 className="text-xs font-bold uppercase tracking-tight text-white truncate">{task.title}</h3>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{task.day}</span>
-                                        <span className="text-[7px] font-black text-white/20">|</span>
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-amber-500">{task.priority} Priority</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {resourcesCount > 0 && <Paperclip size={12} className="text-neon-cyan/50" />}
-                                {isExpanded ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
-                            </div>
+              {unacceptedTasks.map(task => {
+                const isExpanded = expandedTaskId === task.id;
+                const resourcesCount = task.resources?.length || 0;
+                return (
+                  <div key={task.id} className={`glass-terminal border transition-all duration-300 overflow-hidden ${isExpanded ? 'border-amber-500 ring-1 ring-amber-500/20' : 'border-amber-500/20 bg-amber-500/5'}`}>
+                    <div onClick={() => toggleExpand(task.id)} className="p-4 flex items-center justify-between cursor-pointer">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-2 h-2 rounded-sm shrink-0 bg-amber-500 animate-pulse"></div>
+                        <div className="min-w-0">
+                          <h3 className="text-xs font-bold uppercase tracking-tight text-white truncate">{task.title}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{task.day}</span>
+                            <span className="text-[7px] font-black text-white/20">|</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-amber-500">{task.priority} Priority</span>
+                          </div>
                         </div>
-                        {isExpanded && renderTaskDetails(task)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {resourcesCount > 0 && <Paperclip size={12} className="text-neon-cyan/50" />}
+                        {isExpanded ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+                      </div>
                     </div>
-                 );
-               })}
+                    {isExpanded && renderTaskDetails(task)}
+                  </div>
+                );
+              })}
             </div>
           </section>
         )}
 
         <section className="space-y-4">
           <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <span className="w-4 h-px bg-neon-green"></span>
-              Operational_Log
+            <span className="w-4 h-px bg-neon-green"></span>
+            Operational_Log
           </h2>
 
           {activeTasks.length > 0 ? (
@@ -304,8 +329,8 @@ const PerformerDashboard: React.FC = () => {
               const resourcesCount = task.resources?.length || 0;
 
               return (
-                <div 
-                  key={task.id} 
+                <div
+                  key={task.id}
                   className={`glass-terminal border transition-all duration-300 overflow-hidden ${isExpanded ? 'border-neon-green ring-1 ring-neon-green/20' : 'border-white/5'}`}
                 >
                   <div onClick={() => toggleExpand(task.id)} className="p-4 flex items-center justify-between cursor-pointer">
@@ -316,9 +341,9 @@ const PerformerDashboard: React.FC = () => {
                           <RichText text={task.title} />
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
-                           <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{task.day}</span>
-                           <span className="text-[7px] font-black text-white/20">|</span>
-                           <span className={`text-[8px] font-black uppercase tracking-widest ${getStatusColorClass(task.status).replace('bg-', 'text-')}`}>{task.status}</span>
+                          <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{task.day}</span>
+                          <span className="text-[7px] font-black text-white/20">|</span>
+                          <span className={`text-[8px] font-black uppercase tracking-widest ${getStatusColorClass(task.status).replace('bg-', 'text-')}`}>{task.status}</span>
                         </div>
                       </div>
                     </div>
@@ -326,7 +351,7 @@ const PerformerDashboard: React.FC = () => {
                       {resourcesCount > 0 && <Paperclip size={12} className="text-neon-cyan/50" />}
                       {task.status !== TaskStatus.Done && (
                         <Tooltip content="Analyze with AI">
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleAIAnalysis(task.id); }}
                             disabled={isThinking}
                             className={`p-1.5 rounded-sm border border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan hover:text-obsidian-950 transition-all ${isThinking ? 'animate-pulse' : ''}`}
@@ -345,8 +370,8 @@ const PerformerDashboard: React.FC = () => {
             })
           ) : (
             <div className="py-20 text-center opacity-30 border border-dashed border-white/10 flex flex-col items-center gap-3">
-                <Terminal size={32} />
-                <span className="text-[10px] font-black uppercase tracking-widest">No active units</span>
+              <Terminal size={32} />
+              <span className="text-[10px] font-black uppercase tracking-widest">No active units</span>
             </div>
           )}
         </section>

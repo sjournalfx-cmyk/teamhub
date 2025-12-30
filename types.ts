@@ -70,17 +70,17 @@ export interface Task {
   day: DayOfWeek;
   estimateHours: number;
   assigneeId: string;
-  goalId?: string; 
-  milestoneId?: string; 
+  goalId?: string;
+  milestoneId?: string;
   tags: string[];
   isBlocked?: boolean;
   blockerMessage?: string;
   blockerSuggestion?: string;
   isDraft?: boolean;
   isAccepted?: boolean;
-  videoUrl?: string; 
-  dependencyId?: string; 
-  scheduledAt?: number; 
+  videoUrl?: string;
+  dependencyId?: string;
+  scheduledAt?: number;
   isScheduled?: boolean;
   unblockHistory?: AIChatMessage[];
   breakdown?: string[];
@@ -117,6 +117,15 @@ export interface Goal {
   color: string;
 }
 
+export interface JoinRequest {
+  id: string;
+  email: string;
+  role: string;
+  status: 'pending' | 'approved' | 'rejected';
+  invitedBy?: string;
+  createdAt: string;
+}
+
 export interface AppState {
   tasks: Task[];
   goals: Goal[];
@@ -128,6 +137,7 @@ export interface AppState {
   focusStartTime: number | null;
   activityLog: ActivityEvent[];
   isDraftMode: boolean;
+  joinRequests: JoinRequest[];
 }
 
 export type Theme = 'light' | 'dark';
@@ -146,7 +156,7 @@ export type AppContextType = {
   deleteTask: (taskId: string) => void;
   openTaskModal: (task?: Task, initialDay?: DayOfWeek, initialAssigneeId?: string, scheduledAt?: number) => void;
   viewEvidence: (task: Task) => void;
-  
+
   // Goal Management
   addGoal: (goal: Goal) => void;
   updateGoal: (goal: Goal) => void;
@@ -157,7 +167,10 @@ export type AppContextType = {
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
   deleteUser: (userId: string) => void;
-  updateUserStatus: (emoji: string, text: string) => void; // New
+  updateUserStatus: (emoji: string, text: string) => void;
+  sendJoinRequest: (email: string, role: string) => Promise<void>;
+  approveJoinRequest: (requestId: string) => Promise<void>;
+  rejectJoinRequest: (requestId: string) => Promise<void>;
 
   // Blocker feature
   toggleTaskBlocker: (taskId: string, message?: string, suggestion?: string) => void;

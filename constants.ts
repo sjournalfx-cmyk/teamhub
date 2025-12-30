@@ -6,12 +6,12 @@ const getTimestampForDay = (targetDay: DayOfWeek) => {
   const now = new Date();
   const currentDayIdx = now.getDay(); // 0 is Sunday, 1 is Monday...
   const targetDayIdx = [
-    DayOfWeek.Sun, DayOfWeek.Mon, DayOfWeek.Tue, DayOfWeek.Wed, 
+    DayOfWeek.Sun, DayOfWeek.Mon, DayOfWeek.Tue, DayOfWeek.Wed,
     DayOfWeek.Thu, DayOfWeek.Fri, DayOfWeek.Sat
   ].indexOf(targetDay);
-  
+
   if (targetDayIdx === -1) return undefined;
-  
+
   const diff = targetDayIdx - currentDayIdx;
   const targetDate = new Date(now);
   targetDate.setDate(now.getDate() + diff);
@@ -112,7 +112,7 @@ export const MOCK_TASKS: Task[] = [
     day: DayOfWeek.Tue,
     estimateHours: 1,
     assigneeId: 'u1',
-    goalId: undefined, 
+    goalId: undefined,
     tags: ['Meeting'],
     scheduledAt: getTimestampForDay(DayOfWeek.Tue),
     isScheduled: true,
@@ -147,5 +147,6 @@ export const INITIAL_STATE: AppState = {
   activeFocusTaskId: null,
   focusStartTime: null,
   activityLog: [],
-  isDraftMode: false
+  isDraftMode: false,
+  joinRequests: []
 };

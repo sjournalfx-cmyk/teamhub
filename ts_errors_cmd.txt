@@ -1,0 +1,4 @@
+check_columns.ts(3,20): error TS2307: Cannot find module 'dotenv' or its corresponding type declarations.
+components/AdminDashboard.tsx(46,54): error TS2304: Cannot find name 'JoinRequestsView'.
+components/AdminDashboard.tsx(57,29): error TS2304: Cannot find name 'ShieldCheck'.
+setup_db.ts(3,20): error TS2307: Cannot find module 'dotenv' or its corresponding type declarations.

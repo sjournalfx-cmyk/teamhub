@@ -1,5 +1,5 @@
 {
-  "name": "TeamHub",
+  "name": "Kinetic",
   "description": "A simple workspace for remote teams. Track tasks, set goals, and share progress without the complexity.",
   "requestFramePermissions": [
     "camera"

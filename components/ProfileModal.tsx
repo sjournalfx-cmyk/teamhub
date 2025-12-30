@@ -2,7 +2,8 @@
 import React, { useState, useContext, useEffect } from 'react';
 // Corrected import source for AppContext
 import { AppContext } from '../context';
-import { User, X, Cpu, Terminal, Shield, Save, Fingerprint } from 'lucide-react';
+import { User, X, Cpu, Terminal, Shield, Save, Fingerprint, Upload } from 'lucide-react';
+import FileUpload from './FileUpload';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -54,13 +55,19 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         <div className="p-8 space-y-6">
           <div className="flex justify-center mb-6">
             <div className="relative group">
-              <img 
-                src={avatar} 
-                className="w-20 h-20 rounded-sm border border-neon-cyan/30 grayscale hover:grayscale-0 transition-all object-cover" 
+              <img
+                src={avatar}
+                className="w-20 h-20 rounded-sm border border-neon-cyan/30 grayscale hover:grayscale-0 transition-all object-cover"
                 alt="Profile"
               />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                 <span className="text-[8px] font-black text-white uppercase tracking-widest">Active</span>
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                <FileUpload
+                  onUploadComplete={(url) => setAvatar(url)}
+                  bucket="avatars"
+                  accept="image/*"
+                  label="Change"
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
@@ -70,11 +77,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <Terminal size={10} /> Node.Callsign
               </label>
-              <input 
-                type="text" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-white outline-none focus:border-neon-cyan transition-all" 
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-white outline-none focus:border-neon-cyan transition-all"
               />
             </div>
 
@@ -82,45 +89,45 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <Shield size={10} /> Role.Designation
               </label>
-              <input 
-                type="text" 
-                value={role} 
-                onChange={(e) => setRole(e.target.value)} 
-                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-white outline-none focus:border-neon-cyan transition-all" 
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-white outline-none focus:border-neon-cyan transition-all"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Avatar.Link</label>
-              <input 
-                type="text" 
-                value={avatar} 
-                onChange={(e) => setAvatar(e.target.value)} 
-                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-slate-400 outline-none focus:border-neon-cyan transition-all" 
+              <input
+                type="text"
+                value={avatar}
+                onChange={(e) => setAvatar(e.target.value)}
+                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-slate-400 outline-none focus:border-neon-cyan transition-all"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Node.Bio</label>
-              <textarea 
-                value={bio} 
-                onChange={(e) => setBio(e.target.value)} 
-                rows={3} 
-                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-slate-400 outline-none focus:border-neon-cyan resize-none transition-all" 
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={3}
+                className="w-full bg-slate-950/50 border border-white/10 p-3 text-xs text-slate-400 outline-none focus:border-neon-cyan resize-none transition-all"
               />
             </div>
           </div>
         </div>
 
         <div className="p-6 border-t border-white/5 bg-white/5 flex justify-end gap-4">
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
           >
             Abort
           </button>
-          <button 
-            onClick={handleSave} 
+          <button
+            onClick={handleSave}
             className="px-6 py-2 bg-neon-cyan text-obsidian-950 font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all flex items-center gap-2"
           >
             <Save size={12} /> Sync.Identity

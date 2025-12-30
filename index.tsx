@@ -1,18 +1,18 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { polyfill } from "mobile-drag-drop";
-import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behavior";
+import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behaviour";
+import { AuthProvider } from './context/AuthContext';
 
 // Initialize drag and drop polyfill for mobile support
 polyfill({
-    dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
-    holdToDrag: 200 // User needs to hold for 200ms to start drag on mobile
+  dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
+  holdToDrag: 200 // User needs to hold for 200ms to start drag on mobile
 });
 
 // Workaround for some iOS issues with touch move
-window.addEventListener('touchmove', function() {}, {passive: false});
+window.addEventListener('touchmove', function () { }, { passive: false });
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -22,6 +22,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );
