@@ -1,209 +1,288 @@
-
-import React, { useContext, useState, useMemo, useRef } from 'react';
-// Corrected import source for AppContext
+import React, { useContext } from 'react';
 import { AppContext } from '../context';
-import { TaskStatus } from '../types';
-import { 
-  Activity, Zap, TrendingUp, PieChart as PieChartIcon, CheckCircle2, AlertTriangle, Target, RefreshCcw, Cpu, FileText, User as UserIcon
-} from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie
-} from 'recharts';
-import ReviewGallery from './ReviewGallery';
+import { TaskStatus, Priority } from '../types';
+import { Activity, Target, CheckCircle2, Clock, AlertCircle, TrendingUp, Users, Zap, Shield, Hash, Info } from 'lucide-react';
+import { ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import ContextualHelp from './ContextualHelp';
 
 const DashboardView: React.FC = () => {
-  const { state, openReportModal } = useContext(AppContext);
-  const { tasks, users } = state;
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const dashboardRef = useRef<HTMLDivElement>(null);
+  const { state, viewEvidence } = useContext(AppContext);
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 800);
-  };
+  const totalTasks = state.tasks.length;
+  const completedTasks = state.tasks.filter(t => t.status === TaskStatus.Done).length;
+  const inProgressTasks = state.tasks.filter(t => t.status === TaskStatus.WorkingOnIt).length;
+  const blockedTasks = state.tasks.filter(t => t.isBlocked).length;
 
-  const analytics = useMemo(() => {
-    const total = tasks.length;
-    const done = tasks.filter(t => t.status === TaskStatus.Done).length;
-    const stuck = tasks.filter(t => t.status === TaskStatus.Stuck).length;
-    const working = tasks.filter(t => t.status === TaskStatus.WorkingOnIt).length;
-    const inReview = tasks.filter(t => t.status === TaskStatus.ReadyForReview).length;
-    const alignmentRatio = total > 0 ? tasks.filter(t => !!t.goalId).length / total : 0;
-    
-    const frictionPenalty = total > 0 ? (stuck / total) * 50 : 0;
-    const alignmentBonus = alignmentRatio * 50;
-    const healthScore = Math.max(0, Math.min(100, (done / Math.max(1, total)) * 20 + alignmentBonus - frictionPenalty + 30));
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    const velocityData = [
-      { day: 'MON', completed: Math.floor(done * 0.1) + 1 },
-      { day: 'TUE', completed: Math.floor(done * 0.2) + 2 },
-      { day: 'WED', completed: Math.floor(done * 0.3) + 1 },
-      { day: 'THU', completed: Math.floor(done * 0.2) + 4 },
-      { day: 'FRI', completed: Math.floor(done * 0.2) + 2 },
-    ];
+  const activeGoals = state.goals.filter(g => g.progress < 100).length;
+  const totalGoals = state.goals.length;
 
-    return { 
-      total, done, stuck, working, inReview, healthScore, velocityData,
-      alignmentPct: Math.round(alignmentRatio * 100)
-    };
-  }, [tasks]);
+  // Section 2: Efficiency & Velocity
+  const totalEstimatedHours = state.tasks.reduce((acc, t) => acc + (t.estimateHours || 0), 0);
+  const completedEstimatedHours = state.tasks
+    .filter(t => t.status === TaskStatus.Done)
+    .reduce((acc, t) => acc + (t.estimateHours || 0), 0);
 
-  const statusData = [
-    { name: 'DONE', value: analytics.done, color: '#22c55e' },
-    { name: 'BLOCKED', value: analytics.stuck, color: '#f43f5e' },
-    { name: 'REVIEW', value: analytics.inReview, color: '#06b6d4' },
-    { name: 'WORKING', value: analytics.working, color: '#f59e0b' },
+  const hourProgress = totalEstimatedHours > 0 ? Math.round((completedEstimatedHours / totalEstimatedHours) * 100) : 0;
+
+  // Section 4: Priority & Focus
+  const highPriorityPending = state.tasks.filter(t => t.priority === Priority.High && t.status !== TaskStatus.Done).length;
+  const mediumPriorityPending = state.tasks.filter(t => t.priority === Priority.Medium && t.status !== TaskStatus.Done).length;
+  const lowPriorityPending = state.tasks.filter(t => t.priority === Priority.Low && t.status !== TaskStatus.Done).length;
+
+  const priorityData = [
+    { name: 'High', value: state.tasks.filter(t => t.priority === Priority.High).length, color: '#f43f5e' },
+    { name: 'Medium', value: state.tasks.filter(t => t.priority === Priority.Medium).length, color: '#f59e0b' },
+    { name: 'Low', value: state.tasks.filter(t => t.priority === Priority.Low).length, color: '#10b981' },
   ];
 
-  return (
-    <div ref={dashboardRef} className="flex-1 h-full flex flex-col bg-transparent overflow-y-auto custom-scrollbar p-5 md:p-10 relative">
-      <div className="absolute inset-0 tactical-grid pointer-events-none opacity-20"></div>
+  // Tag Distribution
+  const tagCounts: { [key: string]: number } = {};
+  state.tasks.forEach(task => {
+    task.tags?.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  const topTags = Object.entries(tagCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([name, value]) => ({ name, value }));
 
-      {/* Main Header */}
-      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 md:mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 glass-layer-2 rounded border border-white/10 flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.05)] shrink-0">
-            <Cpu size={20} className="text-neon-green" />
+
+
+  return (
+    <div className="h-full flex flex-col gap-4 p-4 lg:p-6 overflow-hidden">
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Intelligence Dashboard</h2>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Strategic Operations Overview</p>
+          </div>
+          <ContextualHelp 
+            title="Dashboard Overview"
+            content="This view provides a high-level summary of mission progress, team velocity, and critical blockers. Use it to maintain strategic situational awareness."
+          />
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-neon-green/10 border border-neon-green/20 rounded-full">
+          <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse"></div>
+          <span className="text-[10px] font-black text-neon-green uppercase tracking-widest">System Online</span>
+        </div>
+      </div>
+
+      {/* Main Bento Grid */}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 grid-rows-auto lg:grid-rows-[auto_1fr_1fr] gap-4 min-h-0">
+
+        {/* Metric 1: Total Completion */}
+        <div className="bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm relative overflow-hidden group flex flex-col justify-between">
+          <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+            <Activity size={48} className="text-violet-500 animate-heartbeat" />
           </div>
           <div>
-            <h1 className="text-lg md:text-3xl font-black text-white tracking-wide uppercase leading-none">Management Center</h1>
-            <p className="text-slate-500 text-[8px] md:text-[10px] font-bold uppercase tracking-widest mt-1.5 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-neon-green animate-pulse rounded-full"></span>
-              Workspace Stable
-            </p>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Completion</div>
+            <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{completionRate}%</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{completedTasks} of {totalTasks} Tasks Finalized</div>
+          </div>
+          <div className="w-full h-1 bg-slate-100 dark:bg-white/5 mt-4 rounded-full overflow-hidden">
+            <div className="h-full bg-neon-cyan" style={{ width: `${completionRate}%` }}></div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 md:gap-4">
-          <button 
-            onClick={openReportModal}
-            className="tactical-button flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 text-white flex items-center justify-center gap-2 group"
-          >
-            <div className="tactical-beam-container"><div className="tactical-beam"></div></div>
-            <FileText size={16} className="text-neon-cyan" />
-            <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em]">Generate Report</span>
-          </button>
-          <button 
-            onClick={handleRefresh}
-            className={`p-2.5 md:p-4 glass-layer-2 text-slate-500 hover:text-neon-green rounded-sm transition-all shrink-0 ${isRefreshing ? 'animate-spin text-neon-green' : ''}`}
-          >
-            <RefreshCcw size={14} />
-          </button>
-        </div>
-      </div>
 
-      {/* Live Team Pulse Presence Bar */}
-      <div className="relative z-10 mb-8 overflow-x-auto no-scrollbar pb-2">
-        <div className="flex gap-4 min-w-max">
-          {users.map(user => {
-            const activeTask = tasks.find(t => t.assigneeId === user.id && t.status === TaskStatus.WorkingOnIt);
-            return (
-              <div key={user.id} className="glass-layer-1 p-3 flex items-center gap-3 min-w-[200px] border-l-4 border-l-neon-green/30">
-                <div className="relative">
-                  <img src={user.avatar} className="w-10 h-10 rounded-sm grayscale group-hover:grayscale-0 border border-white/10" />
-                  <div className="absolute -top-1 -right-1 text-xs">{user.statusEmoji || '👤'}</div>
-                  {activeTask && (
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-neon-green rounded-full border-2 border-obsidian-950 animate-pulse"></div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-black text-white uppercase tracking-tight truncate">{user.name.split(' ')[0]}</div>
-                  <div className="text-[8px] text-slate-500 font-bold uppercase truncate">{user.statusText || 'Syncing...'}</div>
-                  {activeTask && (
-                    <div className="text-[7px] text-neon-cyan font-black uppercase tracking-tighter truncate mt-1 animate-in slide-in-from-left-1">
-                      → {activeTask.title}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <ReviewGallery />
-
-      <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-10">
-        {[
-          { label: 'COMPLETED', val: analytics.done, color: 'text-neon-green', icon: CheckCircle2 },
-          { label: 'STUCK', val: analytics.stuck, color: 'text-rose-500', icon: AlertTriangle },
-          { label: 'ALIGNED', val: `${analytics.alignmentPct}%`, color: 'text-neon-cyan', icon: Target },
-          { label: 'HEALTH', val: `${Math.round(analytics.healthScore)}%`, color: 'text-white', icon: Zap }
-        ].map((kpi, idx) => (
-          <div key={idx} className="glass-layer-1 p-4 md:p-6 group relative overflow-hidden flex flex-col justify-between aspect-square md:aspect-auto">
-             <div className={`p-1.5 md:p-2 rounded bg-white/5 border border-white/10 ${kpi.color} w-fit`}>
-                <kpi.icon size={12} className="md:size-14" />
-             </div>
-             <div>
-                <div className={`text-xl md:text-4xl font-black ${kpi.color} tracking-tighter`}>{kpi.val}</div>
-                <div className="text-[7px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">{kpi.label}</div>
-             </div>
+        {/* Metric 2: Hour Velocity */}
+        <div className="bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm relative overflow-hidden group flex flex-col justify-between">
+          <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+            <Zap size={48} className="text-neon-cyan animate-pulse" />
           </div>
-        ))}
-      </div>
-
-      <div className="relative z-10 grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8 mb-12">
-        <div className="xl:col-span-8 glass-layer-2 p-6 md:p-8 min-h-[300px] md:min-h-[450px]">
-           <div className="flex items-center gap-3 mb-6 md:mb-10">
-              <TrendingUp size={14} className="text-neon-green md:size-16" />
-              <h3 className="text-[9px] md:text-xs font-black uppercase tracking-widest text-white">Velocity Trend</h3>
-           </div>
-           
-           <div className="h-[200px] md:h-[280px] w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={analytics.velocityData}>
-                 <defs>
-                   <linearGradient id="neonGreenGrad" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                   </linearGradient>
-                 </defs>
-                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
-                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 7, fill: '#475569', fontWeight: 800}} dy={10} />
-                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 7, fill: '#475569'}} />
-                 <Area type="monotone" dataKey="completed" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#neonGreenGrad)" />
-               </AreaChart>
-             </ResponsiveContainer>
-           </div>
+          <div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Hour Velocity</div>
+            <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{hourProgress}%</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{completedEstimatedHours}h of {totalEstimatedHours}h Estimated</div>
+          </div>
+          <div className="w-full h-1 bg-slate-100 dark:bg-white/5 mt-4 rounded-full overflow-hidden">
+            <div className="h-full bg-neon-green" style={{ width: `${hourProgress}%` }}></div>
+          </div>
         </div>
 
-        <div className="xl:col-span-4 glass-layer-2 p-6 md:p-8 flex flex-col">
-              <div className="flex items-center gap-3 mb-6 md:mb-8">
-                <PieChartIcon size={14} className="text-neon-cyan md:size-16" />
-                <h3 className="text-[9px] md:text-xs font-black uppercase tracking-widest text-white">Resource Load</h3>
-              </div>
-              
-              <div className="h-40 md:h-48 w-full relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={statusData} innerRadius={40} outerRadius={60} paddingAngle={8} dataKey="value" stroke="none">
-                      {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center">
-                        <div className="text-lg md:text-xl font-black text-white">{analytics.total}</div>
-                        <div className="text-[7px] md:text-[8px] text-slate-500 uppercase font-black">UNITS</div>
-                    </div>
-                </div>
-              </div>
+        {/* Metric 3: High Priority */}
+        <div className="bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm relative overflow-hidden group flex flex-col justify-between">
+          <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+            <Shield size={48} className="text-rose-500" />
+          </div>
+          <div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">High Priority</div>
+            <div className="text-3xl font-black text-rose-500 mb-1">{highPriorityPending}</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Critical Tasks Pending Action</div>
+          </div>
+        </div>
 
-              <div className="mt-6 space-y-2">
-                  {statusData.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px]">
-                          <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }}></div>
-                              <span className="font-bold text-slate-400 uppercase">{s.name}</span>
+        {/* Metric 4: Blockers */}
+        <div className="bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm relative overflow-hidden group flex flex-col justify-between">
+          <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+            <AlertCircle size={48} className="text-amber-500 animate-shake" />
+          </div>
+          <div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Blockers</div>
+            <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{blockedTasks}</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Tasks Requiring Assistance</div>
+          </div>
+        </div>
+
+        {/* Inspection List (Spans 2 cols, 2 rows) */}
+        <div className="lg:col-span-2 lg:row-span-2 bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-6 shrink-0">
+            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <Shield size={14} className="text-neon-cyan" /> Inspection Required
+            </h3>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              {state.tasks.filter(t => t.status === TaskStatus.ReadyForReview).length} Pending
+            </div>
+          </div>
+
+          <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
+            {state.tasks.filter(t => t.status === TaskStatus.ReadyForReview).length > 0 ? (
+              state.tasks
+                .filter(t => t.status === TaskStatus.ReadyForReview)
+                .map(task => {
+                  const assignees = (task.assigneeIds && task.assigneeIds.length > 0)
+                    ? state.users.filter(u => task.assigneeIds!.includes(u.id))
+                    : state.users.filter(u => u.id === task.assigneeId);
+
+                  return (
+                    <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-sm border border-black/5 dark:border-white/5 hover:border-neon-cyan/50 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="flex -space-x-2">
+                          {assignees.map(assignee => (
+                            <div key={assignee.id} className="relative">
+                              <img
+                                src={assignee.avatar || `https://ui-avatars.com/api/?name=${assignee.name || 'Unassigned'}&background=random`}
+                                className="w-8 h-8 rounded-sm grayscale group-hover:grayscale-0 transition-all border border-white/10"
+                                alt={assignee.name}
+                              />
+                              {assignee.isOnline && (
+                                <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-neon-green rounded-full border-2 border-white dark:border-obsidian-950"></div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">{task.title}</div>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-widest">
+                            {assignees.length === 1 ? assignees[0].name : `${assignees.length} Members`}
                           </div>
-                          <span className="font-black text-white">{s.value}</span>
+                        </div>
                       </div>
-                  ))}
+                      <button
+                        onClick={() => viewEvidence(task)}
+                        className="px-3 py-1.5 bg-neon-cyan/10 hover:bg-neon-cyan/20 text-neon-cyan text-[10px] font-black uppercase tracking-widest rounded-sm transition-colors flex items-center gap-2"
+                      >
+                        <Shield size={12} />
+                        Inspect
+                      </button>
+                    </div>
+                  );
+                })
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-3">
+                <CheckCircle2 size={24} className="text-slate-400 opacity-50" />
+                <div className="text-[10px] font-bold uppercase tracking-widest">All inspections complete</div>
               </div>
+            )}
+          </div>
         </div>
+
+        {/* Priority Allocation (1 col, 1 row) */}
+        <div className="bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm flex flex-col">
+          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2 shrink-0">
+            <Shield size={14} className="text-rose-500" /> Priority Allocation
+          </h3>
+          <div className="flex-1 flex items-center min-h-0">
+            <div className="w-1/2 h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={priorityData}
+                    innerRadius={40}
+                    outerRadius={60}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {priorityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="w-1/2 space-y-3">
+              {priorityData.map((item) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">{item.name}</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Personnel Status (1 col, 2 rows) */}
+        <div className="lg:row-span-2 bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-6 shrink-0">
+            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <Users size={14} className="text-neon-green" /> Personnel Status
+            </h3>
+          </div>
+          <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-2">
+            {state.users.map(user => (
+              <div key={user.id} className="flex items-center gap-3">
+                <div className="relative">
+                  <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`} className="w-8 h-8 rounded-sm grayscale hover:grayscale-0 transition-all cursor-pointer border border-black/5 dark:border-white/5" />
+                  <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-obsidian-950 ${user.isOnline ? 'bg-neon-green' : 'bg-slate-400'}`}></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tighter">
+                    {user.name} {user.statusText && <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 ml-1 lowercase">({user.statusEmoji} {user.statusText})</span>}
+                  </div>
+                  <div className="text-[9px] text-slate-500 uppercase tracking-widest">{user.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Focus Areas (1 col, 1 row) */}
+        <div className="bg-white dark:bg-obsidian-900/50 border border-black/10 dark:border-white/10 p-6 rounded-sm flex flex-col">
+          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2 shrink-0">
+            <Hash size={14} className="text-neon-cyan" /> Focus Areas (Tags)
+          </h3>
+          <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-2">
+            {topTags.length > 0 ? topTags.map((tag) => (
+              <div key={tag.name} className="space-y-1">
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
+                  <span className="text-slate-500">#{tag.name}</span>
+                  <span className="text-slate-900 dark:text-white">{tag.value} tasks</span>
+                </div>
+                <div className="w-full h-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-neon-cyan/50"
+                    style={{ width: `${(tag.value / totalTasks) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            )) : (
+              <div className="h-full flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                No tags detected
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
 };
 
 export default DashboardView;
+

@@ -13,7 +13,7 @@ interface FileUploadProps {
 const FileUpload: React.FC<FileUploadProps> = ({
     onUploadComplete,
     bucket = 'attachments',
-    accept = "image/*,.pdf,.csv",
+    accept = "image/*,.pdf,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip",
     label = "Upload File",
     className = ""
 }) => {
@@ -93,8 +93,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
             </button>
 
             {error && (
-                <div className="absolute top-full left-0 right-0 mt-1 text-[8px] font-black text-rose-500 uppercase tracking-widest animate-in fade-in slide-in-from-top-1">
-                    Error: {error}
+                <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-sm text-[9px] font-bold text-rose-500 uppercase tracking-widest animate-in fade-in slide-in-from-top-1">
+                    {error}
                 </div>
             )}
 

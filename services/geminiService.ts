@@ -1,14 +1,32 @@
-
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AppState, DayOfWeek, Goal, Task, Priority, TaskStatus, AIChatMessage } from "../types";
 
-const createClient = () => {
-    if (typeof process === 'undefined' || !process.env.API_KEY) {
-        console.warn("API Key is missing for Command Service");
+/**
+ * Create a Gemini AI client instance
+ * Uses VITE_GEMINI_API_KEY from environment variables
+ */
+const createClient = (): GoogleGenAI | null => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
+        console.warn("[GeminiService] API Key is missing. AI features will be disabled.");
+        console.warn("[GeminiService] Add VITE_GEMINI_API_KEY to your .env file.");
         return null;
     }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    try {
+        return new GoogleGenAI({ apiKey });
+    } catch (error) {
+        console.error("[GeminiService] Failed to initialize client:", error);
+        return null;
+    }
 };
+
+// AI Model configuration
+const AI_MODELS = {
+    flash: "gemini-2.0-flash",  // Fast model for quick responses
+    pro: "gemini-1.5-pro"       // Pro model for complex reasoning
+} as const;
 
 // Define tools for command-level state mutation
 const TOOL_DEFINITIONS: FunctionDeclaration[] = [
@@ -84,9 +102,93 @@ const TOOL_DEFINITIONS: FunctionDeclaration[] = [
     }
 ];
 
+/**
+ * Helper to handle rate limits with retries and model fallbacks
+ */
+const generateContentWithRetry = async (
+    client: GoogleGenAI, 
+    params: any, 
+    retries = 3, 
+    useFallback = true
+): Promise<any> => {
+    try {
+        return await client.models.generateContent(params);
+    } catch (error: any) {
+        const isRateLimit = 
+            error?.status === 'RESOURCE_EXHAUSTED' || 
+            error?.code === 429 || 
+            (error?.message && (
+                error.message.includes('429') || 
+                error.message.includes('Quota exceeded') ||
+                error.message.includes('RESOURCE_EXHAUSTED')
+            ));
+
+        if (isRateLimit) {
+            let delay = 5000; // Default 5s
+            
+            // Try to extract specific delay from error message or details
+            try {
+                // Attempt to parse JSON if message is "ApiError: {...}"
+                const rawMessage = error.message || "";
+                const jsonMatch = rawMessage.match(/\{.*\}/);
+                if (jsonMatch) {
+                    const errorData = JSON.parse(jsonMatch[0]);
+                    
+                    // Look for RetryInfo in details
+                    const retryInfo = errorData?.error?.details?.find(
+                        (d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+                    );
+                    
+                    if (retryInfo?.retryDelay) {
+                        // retryDelay is often a string like "14s"
+                        const seconds = parseInt(retryInfo.retryDelay);
+                        if (!isNaN(seconds)) {
+                            delay = (seconds * 1000) + 1500; // Add buffer
+                        }
+                    }
+                }
+            } catch (e) {
+                // If JSON parsing fails, try regex
+                const match = error?.message?.match(/retry in ([\d\.]+)s/);
+                if (match && match[1]) {
+                    delay = Math.ceil(parseFloat(match[1]) * 1000) + 2000;
+                }
+            }
+            
+            // If we have retries left, wait and try again
+            if (retries > 0) {
+                console.warn(`[GeminiService] Rate limit hit for ${params.model}. Retrying in ${delay}ms... (${retries} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return generateContentWithRetry(client, params, retries - 1, useFallback);
+            } 
+            
+            // If Flash model is exhausted, try falling back to Pro model
+            if (useFallback && params.model === AI_MODELS.flash) {
+                console.warn(`[GeminiService] ${AI_MODELS.flash} quota potentially exhausted. Falling back to ${AI_MODELS.pro}...`);
+                return generateContentWithRetry(client, { ...params, model: AI_MODELS.pro }, 1, false);
+            }
+        }
+        
+        // If not a rate limit or all retries/fallbacks failed, throw
+        throw error;
+    }
+};
+
+/**
+ * Detects scheduling conflicts and dependency issues in tasks
+ */
 export const detectTacticalFriction = (tasks: Task[]): { type: 'friction', message: string, taskIds: string[] }[] => {
     const frictions: { type: 'friction', message: string, taskIds: string[] }[] = [];
-    const dayOrder = { [DayOfWeek.Mon]: 0, [DayOfWeek.Tue]: 1, [DayOfWeek.Wed]: 2, [DayOfWeek.Thu]: 3, [DayOfWeek.Fri]: 4, [DayOfWeek.Sat]: 5, [DayOfWeek.Sun]: 6, [DayOfWeek.Backlog]: 99 };
+    const dayOrder = {
+        [DayOfWeek.Mon]: 0,
+        [DayOfWeek.Tue]: 1,
+        [DayOfWeek.Wed]: 2,
+        [DayOfWeek.Thu]: 3,
+        [DayOfWeek.Fri]: 4,
+        [DayOfWeek.Sat]: 5,
+        [DayOfWeek.Sun]: 6,
+        [DayOfWeek.Backlog]: 99
+    };
 
     tasks.forEach(task => {
         if (task.dependencyId) {
@@ -94,11 +196,11 @@ export const detectTacticalFriction = (tasks: Task[]): { type: 'friction', messa
             if (dependency) {
                 const taskDayIdx = dayOrder[task.day];
                 const depDayIdx = dayOrder[dependency.day];
-                
+
                 if (depDayIdx > taskDayIdx) {
                     frictions.push({
                         type: 'friction',
-                        message: `Chain Conflict: Directive @${task.title} is scheduled before its prerequisite @${dependency.title}.`,
+                        message: `Chain Conflict: Task "${task.title}" is scheduled before its dependency "${dependency.title}".`,
                         taskIds: [task.id, dependency.id]
                     });
                 }
@@ -109,24 +211,35 @@ export const detectTacticalFriction = (tasks: Task[]): { type: 'friction', messa
     return frictions;
 };
 
+/**
+ * Analyzes a task and provides step-by-step breakdown with suggestions
+ */
 export const unblockTaskAssistant = async (task: Task): Promise<{ steps: string[], suggestions: string[] }> => {
     const client = createClient();
-    if (!client) return { steps: ["AI OFFLINE."], suggestions: [] };
 
-    const systemPrompt = `You are Command.Directive_Optimizer_v5.
-    Analyze the operational parameters for: "@${task.title}".
-    DIRECTIVE BRIEFING: ${task.description || "No specific briefing provided."}
+    if (!client) {
+        return {
+            steps: ["AI service is currently unavailable.", "Please check your API key configuration."],
+            suggestions: ["Configure VITE_GEMINI_API_KEY in your .env file"]
+        };
+    }
+
+    const systemPrompt = `You are a Task Optimization Assistant.
+    Analyze the task: "${task.title}"
+    Description: ${task.description || "No description provided."}
     
-    GOAL: 
-    1. Break down this instruction into 3-5 high-precision execution steps.
-    2. Provide 2-3 "Command Suggestions" for the executing agent to ensure success.
+    Your goals:
+    1. Break down this task into 3-5 clear, actionable execution steps.
+    2. Provide 2-3 practical suggestions for the person working on this task.
+    
+    Be concise and practical. Focus on actionable advice. 
     
     OUTPUT FORMAT: Return a JSON object with keys "steps" (array of strings) and "suggestions" (array of strings).`;
 
     try {
-        const response = await client.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: "Analyze this directive for optimal execution.",
+        const response = await generateContentWithRetry(client, {
+            model: AI_MODELS.flash,
+            contents: "Analyze this task for optimal execution.",
             config: {
                 systemInstruction: systemPrompt,
                 responseMimeType: "application/json",
@@ -146,119 +259,211 @@ export const unblockTaskAssistant = async (task: Task): Promise<{ steps: string[
                 }
             }
         });
-        
+
         const text = response.text || "{}";
         try {
             return JSON.parse(text);
         } catch {
-            return { steps: ["FAILED TO PARSE SEQUENCE."], suggestions: ["RETRY ANALYSIS."] };
+            console.error("[GeminiService] Failed to parse response:", text);
+            return {
+                steps: ["Unable to parse AI response."],
+                suggestions: ["Please try again."]
+            };
         }
-    } catch (e) {
-        console.error("Command Optimizer Error:", e);
-        return { steps: ["SYSTEM LATENCY DETECTED."], suggestions: ["RE-TRY SEQUENCE GENERATION."] };
+    } catch (error) {
+        console.error("[GeminiService] Task analysis error:", error);
+        return {
+            steps: ["AI analysis temporarily unavailable."],
+            suggestions: ["Please try again later."]
+        };
     }
 };
 
+/**
+ * Generates an executive summary for weekly reports
+ */
 export const generateReportSummary = async (state: AppState): Promise<string> => {
     const client = createClient();
-    if (!client) return "Summary unavailable. AI offline.";
 
-    const completedTasks = state.tasks.filter(t => t.status === TaskStatus.Done).map(t => t.title).join(", ");
-    const activeGoals = state.goals.map(g => `${g.title} (${g.progress}% complete)`).join("; ");
-    const blockers = state.tasks.filter(t => t.isBlocked).map(t => `${t.title}: ${t.blockerMessage}`).join("; ");
+    if (!client) {
+        return "Summary unavailable. AI service is not configured.";
+    }
 
-    const systemPrompt = `You are an elite Project Manager and Consultant.
-    Your task is to write a high-level "Executive Summary" for a weekly client report.
+    const completedTasks = state.tasks
+        .filter(t => t.status === TaskStatus.Done)
+        .map(t => t.title)
+        .join(", ");
+
+    const activeGoals = state.goals
+        .map(g => `${g.title} (${g.progress}% complete)`) 
+        .join("; ");
+
+    const blockers = state.tasks
+        .filter(t => t.isBlocked)
+        .map(t => `${t.title}: ${t.blockerMessage || 'No details'}`)
+        .join("; ");
+
+    const systemPrompt = `You are a professional Project Manager.
+    Write a concise executive summary for a weekly report.
     
-    DATA FOR THIS WEEK:
-    Completed Wins: ${completedTasks || "None reported yet."}
-    Strategic Objectives Progress: ${activeGoals}
-    Current Friction/Blockers: ${blockers || "No major blockers."}
+    DATA:
+    - Completed Tasks: ${completedTasks || "None this week."}
+    - Strategic Goals Progress: ${activeGoals || "No active goals."}
+    - Current Blockers: ${blockers || "No blockers."}
 
     REQUIREMENTS:
-    - Tone: Professional, authoritative, and value-focused.
-    - Format: One concise paragraph.
-    - Focus: Highlight the impact of what was shipped and clearly state what is needed to resolve blockers.
-    - Start directly with the summary, no "Here is the summary" intro.`;
+    - Professional and value-focused tone
+    - One concise paragraph (3-5 sentences)
+    - Highlight achievements and next steps
+    - Start directly with the summary
+    `;
 
     try {
-        const response = await client.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: "Generate executive summary for client report.",
+        const response = await generateContentWithRetry(client, {
+            model: AI_MODELS.flash,
+            contents: "Generate the executive summary.",
             config: { systemInstruction: systemPrompt }
         });
-        return response.text || "Report generated successfully.";
-    } catch (e) {
-        console.error("Report Generation Error:", e);
-        return "Operational summary successfully compiled.";
+        return response.text || "Weekly progress summary generated successfully.";
+    } catch (error) {
+        console.error("[GeminiService] Report generation error:", error);
+        return "Summary generation failed. Please review tasks manually.";
     }
 };
 
+/**
+ * Interactive AI copilot for strategic assistance
+ */
 export const strategyCopilotResponse = async (
     state: AppState,
     history: { role: 'user' | 'model', text: string }[],
     userInput?: string
-): Promise<{ 
-    text: string, 
-    suggestion?: Goal, 
-    taskSuggestion?: Task, 
+): Promise<{
+    text: string,
+    suggestion?: Goal,
+    taskSuggestion?: Task,
     toolCalls?: any[],
     frictionAlerts?: any[]
 }> => {
     const client = createClient();
-    if (!client) return { text: "API Key missing." };
+
+    if (!client) {
+        return {
+            text: "AI Assistant is not available. Please configure VITE_GEMINI_API_KEY in your environment."
+        };
+    }
 
     const frictions = detectTacticalFriction(state.tasks);
-    const frictionContext = frictions.length > 0 ? `OPERATIONAL WARNINGS: ${frictions.map(f => f.message).join("; ")}` : "No current friction detected.";
+    const frictionContext = frictions.length > 0
+        ? `CURRENT ISSUES: ${frictions.map(f => f.message).join("; ")}`
+        : "No scheduling conflicts detected.";
 
-    const currentGoals = state.goals.map(g => `- @${g.title.replace(/\s+/g, '').toLowerCase()} (ID: ${g.id})`).join("\n");
-    const currentTeam = state.users.map(u => `- @${u.name.replace(/\s+/g, '').toLowerCase()} (ID: ${u.id})`).join("\n");
-    const currentTasks = state.tasks.map(t => `- @${t.title.replace(/\s+/g, '').toLowerCase()} (ID: ${t.id}, Status: ${t.status}, Day: ${t.day})`).join("\n");
+    const currentGoals = state.goals
+        .map(g => `- ${g.title} (ID: ${g.id}, Progress: ${g.progress}%)`)
+        .join("\n");
+
+    const currentTeam = state.users
+        .map(u => `- ${u.name} (ID: ${u.id}, Role: ${u.role || 'Team Member'})`)
+        .join("\n");
+
+    const currentTasks = state.tasks
+        .slice(0, 20) // Limit to prevent token overflow
+        .map(t => `- ${t.title} (ID: ${t.id}, Status: ${t.status}, Day: ${t.day})`)
+        .join("\n");
 
     const systemPrompt = `
-    You are Command.Advisor_v5. You assist Managers and Leaders in coordinating complex operations.
+    You are an AI Assistant for team management and task coordination.
     
-    FRICTION CONTEXT:
     ${frictionContext}
 
-    ACTIVE PERSONNEL:
-    ${currentTeam}
+    TEAM MEMBERS:
+    ${currentTeam || "No team members yet."}
     
-    STRATEGIC OBJECTIVES:
-    ${currentGoals}
+    STRATEGIC GOALS:
+    ${currentGoals || "No goals defined yet."}
 
-    ACTIVE DIRECTIVES:
-    ${currentTasks}
+    CURRENT TASKS (Recent 20):
+    ${currentTasks || "No tasks yet."}
     
-    RULES:
-    1. Mentions: Use @name for personnel and directives.
-    2. Tool Usage: Use the provided tools to issue, update, or revoke directives and objectives.
-    3. Leadership Tone: Be concise, tactical, and authoritative. Assist the manager in maintaining oversight.
-    
-    Output Format:
-    Return your response text. If you call a tool, it will be handled by the interface.
+    GUIDELINES:
+    1. Be helpful, concise, and action-oriented
+    2. Use @mentions for team members and tasks when referencing them
+    3. You can use tools to create, update, or delete tasks and goals
+    4. Provide practical advice for project management
+    5. Alert about scheduling conflicts when relevant
     `;
 
     try {
-        const response = await client.models.generateContent({
-            model: "gemini-3-pro-preview",
-            contents: [...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })), ...(userInput ? [{ role: 'user', parts: [{ text: userInput }] }] : [])],
+        const response = await generateContentWithRetry(client, {
+            model: AI_MODELS.flash,
+            contents: [
+                ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+                ...(userInput ? [{ role: 'user' as const, parts: [{ text: userInput }] }] : [])
+            ],
             config: {
                 systemInstruction: systemPrompt,
                 tools: [{ functionDeclarations: TOOL_DEFINITIONS }]
             }
         });
 
-        const text = response.text || "Command standby.";
+        const text = response.text || "I'm ready to help. What would you like assistance with?";
         const toolCalls = response.functionCalls;
 
-        return { 
-            text, 
+        return {
+            text,
             toolCalls,
             frictionAlerts: frictions
         };
-    } catch (error) {
-        console.error("Gemini Command Error:", error);
-        return { text: "Command link unstable. Retrying..." };
+    } catch (error: any) {
+        console.error("[GeminiService] Copilot error:", error);
+        
+        const isRateLimit = 
+            error?.status === 'RESOURCE_EXHAUSTED' || 
+            error?.code === 429 || 
+            (error?.message && (
+                error.message.includes('429') || 
+                error.message.includes('Quota exceeded') ||
+                error.message.includes('RESOURCE_EXHAUSTED')
+            ));
+
+        if (isRateLimit) {
+            return {
+                text: "The AI service is currently at capacity or quota has been exceeded. I've tried to retry and fallback to other models, but the limit persists. Please try again in a few minutes."
+            };
+        }
+
+        return {
+            text: `I encountered an issue processing your request. Error: ${error?.message || "Unknown error"}. Please try again.`
+        };
     }
+};
+
+/**
+ * Simple chat completion for general AI queries
+ */
+export const simpleChat = async (prompt: string, systemInstruction?: string): Promise<string> => {
+    const client = createClient();
+
+    if (!client) {
+        return "AI service is not available.";
+    }
+
+    try {
+        const response = await generateContentWithRetry(client, {
+            model: AI_MODELS.flash,
+            contents: prompt,
+            config: systemInstruction ? { systemInstruction } : undefined
+        });
+        return response.text || "No response generated.";
+    } catch (error) {
+        console.error("[GeminiService] Chat error:", error);
+        return "Failed to generate response.";
+    }
+};
+
+/**
+ * Check if AI service is available
+ */
+export const isAIAvailable = (): boolean => {
+    return !!import.meta.env.VITE_GEMINI_API_KEY;
 };

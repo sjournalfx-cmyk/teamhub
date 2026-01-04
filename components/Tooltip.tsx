@@ -1,9 +1,8 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
-  content: string;
+  content: React.ReactNode;
   children: React.ReactNode;
   position?: 'top' | 'bottom' | 'left' | 'right';
   delay?: number;
@@ -16,11 +15,11 @@ interface Coords {
   height: number;
 }
 
-const Tooltip: React.FC<TooltipProps> = ({ 
-  content, 
-  children, 
+const Tooltip: React.FC<TooltipProps> = ({
+  content,
+  children,
   position = 'top',
-  delay = 200 
+  delay = 200
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -67,7 +66,7 @@ const Tooltip: React.FC<TooltipProps> = ({
 
   const getPositionStyles = () => {
     if (!coords) return {};
-    
+
     // Using fixed positioning for the portal content
     // We adjust based on viewport since it's a Portal at body level
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -108,35 +107,41 @@ const Tooltip: React.FC<TooltipProps> = ({
 
   const getArrowClasses = () => {
     switch (position) {
-      case 'top': return 'top-full left-1/2 -translate-x-1/2 border-t-slate-800 dark:border-t-slate-700';
-      case 'bottom': return 'bottom-full left-1/2 -translate-x-1/2 border-b-slate-800 dark:border-b-slate-700';
-      case 'left': return 'left-full top-1/2 -translate-y-1/2 border-l-slate-800 dark:border-l-slate-700';
-      case 'right': return 'right-full top-1/2 -translate-y-1/2 border-r-slate-800 dark:border-r-slate-700';
+      case 'top': return 'top-full left-1/2 -translate-x-1/2 border-t-slate-900 dark:border-t-white';
+      case 'bottom': return 'bottom-full left-1/2 -translate-x-1/2 border-b-slate-900 dark:border-b-white';
+      case 'left': return 'left-full top-1/2 -translate-y-1/2 border-l-slate-900 dark:border-l-white';
+      case 'right': return 'right-full top-1/2 -translate-y-1/2 border-r-slate-900 dark:border-r-white';
       default: return '';
     }
   };
 
   return (
-    <div 
+    <div
       ref={triggerRef}
-      className="inline-flex" 
-      onMouseEnter={showTooltip} 
+      className="inline-flex"
+      onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
       onFocus={showTooltip}
       onBlur={hideTooltip}
     >
       {children}
       {isVisible && content && createPortal(
-        <div 
+        <div
           style={getPositionStyles()}
           className={`
-            px-3 py-1.5 rounded-lg text-xs font-medium text-white
-            bg-slate-800/95 dark:bg-slate-700/95 backdrop-blur-md shadow-2xl
-            border border-white/10 whitespace-nowrap
-            animate-in fade-in zoom-in-95 duration-150
+            tactical-tooltip
+            px-4 py-2 rounded-sm text-[10px] font-black uppercase tracking-[0.2em]
+            text-neon-cyan bg-obsidian-950/90 backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)]
+            border border-neon-cyan/30
+            animate-in fade-in zoom-in-95 duration-200 z-[9999]
+            font-mono relative overflow-hidden
           `}
         >
-          {content}
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-neon-cyan/20 animate-scan"></div>
+          <div className="relative z-10 flex items-center gap-2">
+            <span className="w-1 h-1 bg-neon-cyan animate-pulse rounded-full"></span>
+            {content}
+          </div>
           <div className={`absolute border-4 border-transparent ${getArrowClasses()}`} />
         </div>,
         document.body

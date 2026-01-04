@@ -9,20 +9,13 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkColumns() {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .limit(1);
-
+    const { data, error } = await supabase.from('profiles').select('*').limit(1);
     if (error) {
-        console.error('Error fetching profiles:', error);
-        return;
-    }
-
-    if (data && data.length > 0) {
-        console.log('Columns in profiles table:', Object.keys(data[0]));
+        console.error('Error:', error);
+    } else if (data && data.length > 0) {
+        console.log('Columns:', Object.keys(data[0]));
     } else {
-        console.log('No data in profiles table to check columns.');
+        console.log('No data in profiles table to inspect columns.');
     }
 }
 

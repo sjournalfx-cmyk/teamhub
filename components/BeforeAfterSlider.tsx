@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 
 interface BeforeAfterSliderProps {
@@ -19,7 +18,7 @@ const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, after }) 
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="relative w-full h-full cursor-col-resize select-none overflow-hidden"
       onMouseMove={handleMove}
@@ -27,28 +26,28 @@ const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({ before, after }) 
     >
       {/* After Image (Full width) */}
       <img src={after} className="absolute inset-0 w-full h-full object-cover" alt="After" />
-      
+
       {/* Before Image (Clipped) */}
-      <div 
-        className="absolute inset-0 w-full h-full overflow-hidden border-r-2 border-white shadow-[10px_0_15px_rgba(0,0,0,0.5)]" 
+      <div
+        className="absolute inset-0 w-full h-full overflow-hidden border-r-2 border-white shadow-[10px_0_15px_rgba(0,0,0,0.5)]"
         style={{ width: `${sliderPos}%` }}
       >
         <img src={before} className="absolute inset-0 w-full h-full object-cover" style={{ width: `${10000 / sliderPos}%` }} alt="Before" />
-        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/50 backdrop-blur-md text-[8px] font-black text-white uppercase tracking-widest">Before</div>
+        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md text-[8px] font-black text-white uppercase tracking-widest border border-white/10">Before</div>
       </div>
-      
-      <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-neon-green/50 backdrop-blur-md text-[8px] font-black text-obsidian-950 uppercase tracking-widest">After</div>
+
+      <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-neon-green/80 backdrop-blur-md text-[8px] font-black text-obsidian-950 uppercase tracking-widest border border-white/10">After</div>
 
       {/* Handle */}
-      <div 
+      <div
         className="absolute inset-y-0 w-1 bg-white flex items-center justify-center"
         style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
       >
-        <div className="w-8 h-8 rounded-full bg-white border-2 border-slate-900 flex items-center justify-center shadow-xl">
-           <div className="flex gap-0.5">
-             <div className="w-0.5 h-3 bg-slate-900"></div>
-             <div className="w-0.5 h-3 bg-slate-900"></div>
-           </div>
+        <div className="w-8 h-8 rounded-full bg-white border-2 border-slate-900 dark:border-obsidian-950 flex items-center justify-center shadow-xl">
+          <div className="flex gap-0.5">
+            <div className="w-0.5 h-3 bg-slate-900 dark:bg-obsidian-950"></div>
+            <div className="w-0.5 h-3 bg-slate-900 dark:bg-obsidian-950"></div>
+          </div>
         </div>
       </div>
     </div>

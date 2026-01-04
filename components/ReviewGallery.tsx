@@ -1,6 +1,4 @@
-
 import React, { useContext, useState, useEffect } from 'react';
-// Corrected import source for AppContext
 import { AppContext } from '../context';
 import { Task, TaskStatus } from '../types';
 import { Check, X, ExternalLink, MessageSquare, Clock, ArrowRight, Eye, Square, FileSpreadsheet, FileText, Layers, Image as ImageIcon } from 'lucide-react';
@@ -41,7 +39,7 @@ const ReviewGallery: React.FC = () => {
           <Eye size={18} />
         </div>
         <div>
-          <h2 className="text-xs md:text-sm font-black uppercase tracking-[0.3em] text-white leading-none">Review.Queue</h2>
+          <h2 className="text-xs md:text-sm font-black uppercase tracking-[0.3em] text-slate-900 dark:text-white leading-none">Review.Queue</h2>
           <p className="text-[8px] md:text-[9px] text-slate-500 uppercase tracking-[0.2em] font-bold mt-1.5">Awaiting commander approval</p>
         </div>
       </div>
@@ -52,44 +50,44 @@ const ReviewGallery: React.FC = () => {
           const deliverables = task.deliverables || [];
           const mainD = deliverables[0];
           const hasComment = !!task.completionComment;
-          
+
           return (
-            <div key={task.id} className="w-[85vw] md:w-[440px] shrink-0 bg-[#020617] border border-white/5 flex flex-col group overflow-hidden shadow-2xl snap-center first:ml-0">
-              
+            <div key={task.id} className="w-[85vw] md:w-[440px] shrink-0 bg-white dark:bg-[#020617] border border-black/5 dark:border-white/5 flex flex-col group overflow-hidden shadow-2xl snap-center first:ml-0">
+
               {/* Media Section (Shows first item) */}
               <div className="h-[200px] md:h-[260px] bg-black relative overflow-hidden flex items-center justify-center cursor-pointer" onClick={() => viewEvidence(task)}>
                 {mainD?.type === 'image' && <img src={mainD.data} className="w-full h-full object-cover" />}
                 {mainD?.type === 'comparison' && <BeforeAfterSlider before={mainD.beforeData!} after={mainD.afterData!} />}
                 {(mainD?.type === 'csv' || mainD?.type === 'pdf') && (
-                  <div className="flex flex-col items-center gap-3 text-center p-6 bg-obsidian-900 w-full h-full justify-center">
+                  <div className="flex flex-col items-center gap-3 text-center p-6 bg-slate-100 dark:bg-obsidian-900 w-full h-full justify-center">
                     {mainD.type === 'csv' ? <FileSpreadsheet size={40} className="text-neon-green/20" /> : <FileText size={40} className="text-neon-cyan/20" />}
-                    <div className="px-4 truncate w-full text-[10px] md:text-xs font-black text-white uppercase tracking-widest">{mainD.fileName}</div>
+                    <div className="px-4 truncate w-full text-[10px] md:text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">{mainD.fileName}</div>
                   </div>
                 )}
                 {mainD?.type === 'link' && (
-                  <div className="flex flex-col items-center gap-3 text-center p-6 bg-obsidian-900 w-full h-full justify-center">
+                  <div className="flex flex-col items-center gap-3 text-center p-6 bg-slate-100 dark:bg-obsidian-900 w-full h-full justify-center">
                     <ExternalLink size={40} className="text-neon-cyan/20" />
                     <a href={mainD.url} target="_blank" rel="noopener" className="text-[10px] md:text-xs font-black text-neon-cyan underline decoration-neon-cyan/30 break-all px-4">
                       {mainD.url}
                     </a>
                   </div>
                 )}
-                
+
                 {/* Overlay for multiple items */}
                 {deliverables.length > 1 && (
-                  <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 text-white text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
+                  <div className="absolute bottom-3 right-3 px-2 py-1 bg-slate-50 dark:bg-black/60 backdrop-blur-md border border-black/10 dark:border-white/10 text-slate-900 dark:text-white text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
                     <Layers size={10} /> +{deliverables.length - 1}
                   </div>
                 )}
-                
-                <div className="absolute inset-0 pointer-events-none border border-white/5"></div>
+
+                <div className="absolute inset-0 pointer-events-none border border-black/5 dark:border-white/5"></div>
               </div>
 
               {/* Info Section */}
-              <div className="p-4 md:p-6 bg-[#020617]">
+              <div className="p-4 md:p-6 bg-white dark:bg-[#020617]">
                 <div className="flex justify-between items-start mb-4 md:mb-6">
                   <div className="space-y-1 min-w-0">
-                    <h3 className="text-xs md:text-md font-black text-white uppercase tracking-tight truncate">{task.title}</h3>
+                    <h3 className="text-xs md:text-md font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{task.title}</h3>
                     <div className="flex items-center gap-2">
                       <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">
                         {assignee?.name}
@@ -97,7 +95,7 @@ const ReviewGallery: React.FC = () => {
                       {hasComment && <MessageSquare size={10} className="text-neon-green" />}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-slate-600 shrink-0">
+                  <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-600 shrink-0">
                     <Clock size={12} />
                     <span className="text-[10px] md:text-xs font-bold tabular-nums">
                       {deliverables[0]?.timestamp ? formatReviewAge(deliverables[0].timestamp) : '00:00'}
@@ -115,18 +113,18 @@ const ReviewGallery: React.FC = () => {
                         onChange={(e) => setRevisionComment(e.target.value)}
                         placeholder="Specify required corrections..."
                         autoFocus
-                        className="w-full bg-black border border-rose-500/30 p-3 pt-7 text-[10px] md:text-[11px] text-slate-300 outline-none h-20 md:h-24 resize-none focus:border-rose-500 transition-all"
+                        className="w-full bg-white dark:bg-black border border-rose-500/30 p-3 pt-7 text-[10px] md:text-[11px] text-slate-700 dark:text-slate-300 outline-none h-20 md:h-24 resize-none focus:border-rose-500 transition-all"
                       />
                     </div>
                     <div className="flex gap-2 md:gap-4">
-                      <button 
-                        onClick={() => setActiveRevisionId(null)} 
-                        className="flex-1 py-2 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+                      <button
+                        onClick={() => setActiveRevisionId(null)}
+                        className="flex-1 py-2 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         Cancel
                       </button>
-                      <button 
-                        onClick={() => handleRevision(task.id)} 
+                      <button
+                        onClick={() => handleRevision(task.id)}
                         disabled={!revisionComment.trim()}
                         className="flex-1 py-2 md:py-3 bg-rose-600 text-white rounded-sm text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 transition-all disabled:opacity-30"
                       >
@@ -136,7 +134,7 @@ const ReviewGallery: React.FC = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 md:gap-4">
-                    <button 
+                    <button
                       onClick={() => setActiveRevisionId(task.id)}
                       className="group flex items-center justify-center gap-2 md:gap-3 py-3 md:py-4 border border-rose-500/40 bg-rose-500/5 text-rose-500 hover:bg-rose-500/10 transition-all"
                     >
@@ -145,9 +143,9 @@ const ReviewGallery: React.FC = () => {
                       </div>
                       <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em]">Revision</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleApprove(task.id)}
-                      className="group flex items-center justify-center gap-2 md:gap-3 py-3 md:py-4 bg-emerald-900/40 border border-emerald-500/20 hover:bg-emerald-600 text-white transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                      className="group flex items-center justify-center gap-2 md:gap-3 py-3 md:py-4 bg-emerald-500/10 dark:bg-emerald-900/40 border border-emerald-500/20 hover:bg-emerald-600 text-slate-900 dark:text-white hover:text-white transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                     >
                       <Check size={14} className="text-emerald-400 group-hover:text-white" />
                       <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em]">Approve</span>

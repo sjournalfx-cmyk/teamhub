@@ -28,7 +28,7 @@ export type UserRole = 'admin' | 'performer';
 
 export interface Deliverable {
   id: string;
-  type: 'link' | 'image' | 'comparison' | 'csv' | 'pdf';
+  type: 'link' | 'image' | 'comparison' | 'csv' | 'pdf' | 'document';
   url?: string;
   data?: string; // base64 or internal ref
   fileName?: string;
@@ -39,6 +39,7 @@ export interface Deliverable {
 
 export interface User {
   id: string;
+  email?: string;
   customId?: string;
   accessCode?: string;
   name: string;
@@ -49,6 +50,7 @@ export interface User {
   statusEmoji?: string; // New: Emoji for presence
   statusText?: string;  // New: Short status text
   isOnline?: boolean;   // New: Real-time presence flag
+  customStatuses?: { emoji: string, text: string }[]; // New: User-defined status options
   metrics?: {
     uptime: number;
     dailyActivity: number[];
@@ -70,6 +72,7 @@ export interface Task {
   day: DayOfWeek;
   estimateHours: number;
   assigneeId: string;
+  assigneeIds?: string[];
   goalId?: string;
   milestoneId?: string;
   tags: string[];
@@ -88,8 +91,10 @@ export interface Task {
   aiSuggestions?: string[];
   resources?: Deliverable[];
   deliverables?: Deliverable[];
+  evidenceRequired?: boolean;
   completionComment?: string;
   reviewComment?: string;
+  lastMovedAt?: number;
 }
 
 export interface ActivityEvent {
@@ -98,6 +103,7 @@ export interface ActivityEvent {
   userName: string;
   action: string;
   targetName: string;
+  targetId?: string; // Link to specific task/goal
   timestamp: number;
 }
 
@@ -115,6 +121,8 @@ export interface Goal {
   progress: number;
   milestones: Milestone[];
   color: string;
+  priority?: 'Primary' | 'Secondary';
+  status?: 'Operational' | 'Degraded';
 }
 
 export interface JoinRequest {
@@ -140,13 +148,13 @@ export interface AppState {
   joinRequests: JoinRequest[];
 }
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'midnight' | 'terminal';
 
 export type AppContextType = {
   state: AppState;
   userRole: UserRole | null;
   theme: Theme;
-  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   logout: () => void;
   moveTask: (taskId: string, targetDay: DayOfWeek) => void;
   toggleFocus: (taskId: string) => void;
@@ -162,13 +170,17 @@ export type AppContextType = {
   updateGoal: (goal: Goal) => void;
   deleteGoal: (goalId: string) => void;
   openGoalModal: (goal?: Goal) => void;
+  toggleMilestone: (goalId: string, milestoneId: string) => void;
 
   // Member Management
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
   deleteUser: (userId: string) => void;
   updateUserStatus: (emoji: string, text: string) => void;
+  addCustomStatus: (emoji: string, text: string) => void;
+  removeCustomStatus: (text: string) => void;
   sendJoinRequest: (email: string, role: string) => Promise<void>;
+  createTeamMember: (name: string, email: string, password: string, role: string) => Promise<User>;
   approveJoinRequest: (requestId: string) => Promise<void>;
   rejectJoinRequest: (requestId: string) => Promise<void>;
 
@@ -194,4 +206,11 @@ export type AppContextType = {
 
   // Reporting
   openReportModal: () => void;
+
+  // Batch Actions
+  batchUpdateTasks: (taskIds: string[], updates: Partial<Task>) => Promise<void>;
+  batchDeleteTasks: (taskIds: string[]) => Promise<void>;
+
+  // Celebrations
+  triggerCelebration: (type: 'confetti' | 'tech') => void;
 };

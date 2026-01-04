@@ -1,185 +1,353 @@
-
 <!DOCTYPE html>
 <html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Kinetic - Simple Team Alignment</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Kinetic - Simple Team Alignment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            obsidian: {
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
             },
-            colors: {
-              obsidian: {
-                800: '#1e293b',
-                900: '#0f172a',
-                950: '#020617',
-              },
-              neon: {
-                green: '#22c55e',
-                cyan: '#06b6d4',
-                rose: '#f43f5e'
-              }
-            },
-            animation: {
-              'scan': 'scan 3s linear infinite',
-              'pulse-glow': 'pulseGlow 2s infinite',
-              'spin-slow': 'spin 8s linear infinite',
-              'float': 'float 6s ease-in-out infinite',
-            },
-            keyframes: {
-              scan: {
-                '0%': { transform: 'translateY(-100%)' },
-                '100%': { transform: 'translateY(100%)' },
-              },
-              pulseGlow: {
-                '0%, 100%': { opacity: '0.2', transform: 'scale(1)' },
-                '50%': { opacity: '0.5', transform: 'scale(1.05)' },
-              },
-              float: {
-                '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
-              }
+            neon: {
+              green: '#22c55e',
+              cyan: '#06b6d4',
+              rose: '#f43f5e'
             }
           },
-        },
-      }
-    </script>
-    <style type="text/tailwindcss">
-      @layer base {
-        body {
-          @apply bg-slate-50 text-slate-600 dark:bg-obsidian-950 dark:text-slate-400 font-sans transition-colors duration-500 overflow-x-hidden select-none;
-          -webkit-tap-highlight-color: transparent;
+          animation: {
+            'scan': 'scan 3s linear infinite',
+            'pulse-glow': 'pulseGlow 2s infinite',
+            'spin-slow': 'spin 8s linear infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'heartbeat': 'heartbeat 1.5s ease-in-out infinite',
+            'ping-slow': 'ping 3s cubic-bezier(0, 0, 0.2, 1) infinite',
+            'shake': 'shake 0.5s ease-in-out infinite',
+          },
+          keyframes: {
+            scan: {
+              '0%': { transform: 'translateY(-100%)' },
+              '100%': { transform: 'translateY(100%)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.2', transform: 'scale(1)' },
+              '50%': { opacity: '0.5', transform: 'scale(1.05)' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            },
+            heartbeat: {
+              '0%, 100%': { transform: 'scale(1)', opacity: '0.1' },
+              '10%, 30%': { transform: 'scale(1.1)', opacity: '0.3' },
+              '20%': { transform: 'scale(1.2)', opacity: '0.4' },
+            },
+            shake: {
+              '0%, 100%': { transform: 'translateX(0)' },
+              '25%': { transform: 'translateX(-2px)' },
+              '75%': { transform: 'translateX(2px)' },
+            }
+          }
         }
       }
-      
-      .tactical-grid {
-        background-image: 
-          radial-gradient(circle at 1px 1px, rgba(0,0,0,0.05) 1px, transparent 0);
-        background-size: 32px 32px;
-      }
-      .dark .tactical-grid {
-        background-image: 
-          radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
-      }
-
-      .glass-layer-1 {
-        @apply bg-white/40 dark:bg-obsidian-900/40 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-lg;
-      }
-      .glass-layer-2 {
-        @apply bg-white/60 dark:bg-obsidian-900/60 backdrop-blur-xl border border-black/10 dark:border-white/10 shadow-xl;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
-      }
-      .dark .glass-layer-2 {
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-      }
-      .glass-layer-3 {
-        @apply bg-white/80 dark:bg-obsidian-900/80 backdrop-blur-2xl border border-black/20 dark:border-white/20 shadow-2xl;
-        box-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.1);
-      }
-      .dark .glass-layer-3 {
-        box-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.6);
-      }
-
-      .mention-highlight {
-        @apply font-black text-neon-green bg-neon-green/10 px-1 rounded-sm border border-neon-green/20;
-      }
-
-      .tactical-button {
-        @apply relative bg-white dark:bg-obsidian-900 border border-black/10 dark:border-white/10 rounded-sm overflow-hidden transition-all duration-300 active:scale-95;
-      }
-
-      .tactical-button::before {
-        content: "";
-        @apply absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300;
-        background: linear-gradient(45deg, transparent, rgba(34, 197, 94, 0.1), transparent);
-      }
-
-      .tactical-beam-container {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        overflow: hidden;
-      }
-
-      .tactical-beam {
-        position: absolute;
-        width: 150%;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #22c55e, transparent);
-        top: 0;
-        left: -150%;
-        animation: beam-move 3s infinite linear;
-      }
-
-      @keyframes beam-move {
-        from { left: -150%; }
-        to { left: 100%; }
-      }
-
-      .tactical-card {
-        @apply bg-white/60 dark:bg-obsidian-900/60 border border-black/5 dark:border-white/5 rounded-sm backdrop-blur-sm transition-all;
-        z-index: 1;
-      }
-
-      .tactical-card:hover {
-        @apply border-black/20 dark:border-white/20 bg-white/80 dark:bg-obsidian-900/80 shadow-2xl shadow-black/10 dark:shadow-black/50 -translate-y-1;
-        z-index: 10;
-      }
-
-      .glass-terminal {
-        @apply bg-white/85 dark:bg-slate-900/85 backdrop-blur-3xl border border-black/10 dark:border-white/10;
-      }
-
-      ::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-      }
-      ::-webkit-scrollbar-track {
-        @apply bg-black/5 dark:bg-black/20;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #22c55e; 
-        border-radius: 0;
-      }
-
-      .pb-safe {
-        padding-bottom: env(safe-area-inset-bottom);
-      }
-      .pt-safe {
-        padding-top: env(safe-area-inset-top);
-      }
-    </style>
+    }
+  </script>
   <script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
-    "html2canvas": "https://esm.sh/html2canvas@1.4.1",
-    "mobile-drag-drop": "https://esm.sh/mobile-drag-drop@2.3.0-rc.2",
-    "mobile-drag-drop/scroll-behavior": "https://esm.sh/mobile-drag-drop@2.3.0-rc.2/scroll-behavior",
-    "mobile-drag-drop/": "https://esm.sh/mobile-drag-drop@^3.0.0-rc.0/"
-  }
-}
-</script>
-</head>
-  <body class="tactical-grid">
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
-  </body>
-</html>
+      {
+        "imports": {
+          "react": "https://esm.sh/react@^19.2.3",
+          "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+          "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+          "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
+          "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+          "react-dom": "https://esm.sh/react-dom@^19.2.3",
+          "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
+          "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+          "mobile-drag-drop": "https://esm.sh/mobile-drag-drop@2.3.0-rc.2",
+          "mobile-drag-drop/scroll-behavior": "https://esm.sh/mobile-drag-drop@2.3.0-rc.2/scroll-behavior",
+          "mobile-drag-drop/": "https://esm.sh/mobile-drag-drop@^3.0.0-rc.0/"
+        }
+      }
+    </script>
+  <style>
+    body {
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .tactical-grid {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .dark .tactical-grid {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    }
+
+    .glass-terminal {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    }
+
+    .dark .glass-terminal {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-layer-1 {
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .dark .glass-layer-1 {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .glass-layer-2 {
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+      border-radius: 8px;
+    }
+
+    .dark .glass-layer-2 {
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-layer-3 {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.08);
+    }
+
+    .dark .glass-layer-3 {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+    }
+
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .tactical-button {
+      position: relative;
+      overflow: hidden;
+      background: rgba(34, 197, 94, 0.08);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tactical-button:hover {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: rgba(34, 197, 94, 0.5);
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .mention-highlight {
+      color: #06b6d4;
+      font-weight: bold;
+      background: rgba(6, 182, 212, 0.08);
+      padding: 0 4px;
+      border-radius: 2px;
+    }
+
+    /* Theme Overrides */
     
+    /* Light Mode Tweak */
+    html:not(.dark) body {
+      background-color: #f1f5f9 !important; /* Slate-100 instead of 50 */
+    }
+
+    /* Light Mode Borders - High Contrast */
+    html:not(.dark) .glass-terminal,
+    html:not(.dark) .glass-layer-1,
+    html:not(.dark) .glass-layer-2,
+    html:not(.dark) .glass-layer-3 {
+      border: 1px solid rgba(0, 0, 0, 0.25) !important;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    }
+
+    html:not(.dark) button,
+    html:not(.dark) input,
+    html:not(.dark) textarea,
+    html:not(.dark) select {
+      border-color: rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Light Mode Text - Ultra Black */
+    html:not(.dark) body,
+    html:not(.dark) .text-slate-900,
+    html:not(.dark) .text-slate-600,
+    html:not(.dark) .text-slate-500,
+    html:not(.dark) h1,
+    html:not(.dark) h2,
+    html:not(.dark) h3,
+    html:not(.dark) h4,
+    html:not(.dark) p,
+    html:not(.dark) span,
+    html:not(.dark) div {
+      color: #000000 !important;
+    }
+
+    html:not(.dark) .text-slate-400,
+    html:not(.dark) .text-slate-300 {
+      color: #333333 !important;
+    }
+
+    /* Tooltip Exception */
+    html:not(.dark) .tactical-tooltip,
+    html:not(.dark) .tactical-tooltip div,
+    html:not(.dark) .tactical-tooltip span {
+      color: #06b6d4 !important; /* neon-cyan */
+    }
+
+    /* Midnight Theme */
+    html.midnight body {
+      background-color: #0b0c15 !important;
+      color: #e0e7ff !important;
+    }
+    
+    html.midnight .glass-terminal,
+    html.midnight .glass-layer-1,
+    html.midnight .glass-layer-2,
+    html.midnight .glass-layer-3 {
+      background: rgba(30, 27, 75, 0.6) !important;
+      border-color: rgba(129, 140, 248, 0.2) !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    }
+    
+    html.midnight .text-slate-900, 
+    html.midnight .dark\:text-white,
+    html.midnight .text-slate-500,
+    html.midnight .text-slate-400 {
+      color: #e0e7ff !important;
+    }
+
+    /* Terminal Theme - Global Override */
+    html.terminal body {
+      background-color: #000000 !important;
+      color: #22c55e !important;
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    html.terminal * {
+      border-radius: 0 !important; /* Square everything */
+    }
+
+    /* Terminal Components */
+    html.terminal .glass-terminal,
+    html.terminal .glass-layer-1,
+    html.terminal .glass-layer-2,
+    html.terminal .glass-layer-3 {
+      background: #000000 !important;
+      border: 1px solid #22c55e !important;
+      box-shadow: none !important;
+    }
+
+    /* Terminal Text Colors - Force Green */
+    html.terminal .text-slate-900,
+    html.terminal .dark\:text-white,
+    html.terminal .text-slate-500,
+    html.terminal .text-slate-600,
+    html.terminal .text-slate-400,
+    html.terminal .text-slate-300,
+    html.terminal h1, html.terminal h2, html.terminal h3, html.terminal h4,
+    html.terminal p, html.terminal span, html.terminal div, html.terminal button {
+      color: #22c55e !important;
+    }
+
+    /* Muted text slightly darker green */
+    html.terminal .text-slate-500,
+    html.terminal .text-slate-600,
+    html.terminal .text-slate-400 {
+      opacity: 0.8 !important;
+    }
+
+    /* Terminal Interactive Elements */
+    html.terminal button,
+    html.terminal input,
+    html.terminal textarea,
+    html.terminal select {
+      background-color: #000000 !important;
+      border: 1px solid #22c55e !important;
+      color: #22c55e !important;
+    }
+
+    html.terminal button:hover {
+      background-color: #22c55e !important;
+      color: #000000 !important;
+    }
+
+    html.terminal input:focus,
+    html.terminal textarea:focus {
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.3) !important;
+    }
+
+    /* Scrollbars for Terminal */
+    html.terminal ::-webkit-scrollbar-thumb {
+      background: #22c55e !important;
+    }
+    html.terminal ::-webkit-scrollbar-track {
+      background: #000000 !important;
+    }
+  </style>
+</head>
+
+<body class="tactical-grid bg-slate-50 text-slate-900 dark:bg-obsidian-950 dark:text-white">
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+
+</html>

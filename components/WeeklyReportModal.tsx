@@ -1,6 +1,4 @@
-
 import React, { useContext, useState, useEffect, useRef } from 'react';
-// Corrected import source for AppContext
 import { AppContext } from '../context';
 import { TaskStatus, Goal, Task } from '../types';
 import { X, Download, FileText, Target, Clock, AlertCircle, CheckCircle2, Cpu, Printer, Share2, Loader2, Sparkles, Building2 } from 'lucide-react';
@@ -47,14 +45,14 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-obsidian-950/95 backdrop-blur-2xl z-[200] flex flex-col items-center justify-center p-4">
+    <div className="fixed inset-0 bg-slate-200/95 dark:bg-obsidian-950/95 backdrop-blur-2xl z-[200] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-5xl flex justify-between items-center mb-6 animate-in slide-in-from-top-4 duration-500">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 border border-neon-cyan/30 bg-neon-cyan/5 flex items-center justify-center text-neon-cyan">
             <FileText size={20} />
           </div>
           <div>
-            <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] font-mono leading-none">Weekly.Strategic_Review</h2>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] font-mono leading-none">Weekly.Strategic_Review</h2>
             <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-2">White-labeled stakeholder report</p>
           </div>
         </div>
@@ -62,7 +60,7 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsPrintMode(!isPrintMode)}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${isPrintMode ? 'bg-white text-obsidian-950 border-white' : 'text-slate-500 border-white/10 hover:text-white hover:border-white/30'}`}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${isPrintMode ? 'bg-white text-obsidian-950 border-white' : 'text-slate-500 border-black/10 dark:border-white/10 hover:text-slate-900 dark:hover:text-white hover:border-black/30 dark:hover:border-white/30'}`}
           >
             <Printer size={14} /> {isPrintMode ? 'Digital Mode' : 'Print Layout'}
           </button>
@@ -72,21 +70,21 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
           >
             <Download size={14} /> <span className="text-[10px] font-black uppercase tracking-widest">Export Image</span>
           </button>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white"><X size={20} /></button>
         </div>
       </div>
 
-      <div className="flex-1 w-full max-w-5xl overflow-y-auto custom-scrollbar rounded-sm shadow-2xl bg-obsidian-950 border border-white/5">
+      <div className="flex-1 w-full max-w-5xl overflow-y-auto custom-scrollbar rounded-sm shadow-2xl bg-white dark:bg-obsidian-950 border border-black/5 dark:border-white/5">
         <div
           ref={reportRef}
-          className={`p-16 transition-colors duration-500 ${isPrintMode ? 'bg-white text-slate-900' : 'bg-[#020617] text-white'}`}
+          className={`p-16 transition-colors duration-500 ${isPrintMode ? 'bg-white text-slate-900' : 'bg-white dark:bg-[#020617] text-slate-900 dark:text-white'}`}
         >
           {/* Document Header */}
           <div className="flex justify-between items-start mb-16 border-b pb-12 border-slate-200 dark:border-white/5">
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <Building2 size={24} className={isPrintMode ? 'text-slate-900' : 'text-neon-cyan'} />
-                <span className={`text-xl font-black uppercase tracking-[0.4em] ${isPrintMode ? 'text-slate-900' : 'text-white'}`}>Kinetic.ClientReport</span>
+                <span className={`text-xl font-black uppercase tracking-[0.4em] ${isPrintMode ? 'text-slate-900' : 'text-slate-900 dark:text-white'}`}>Kinetic.ClientReport</span>
               </div>
               <h1 className="text-5xl font-black tracking-tighter mb-4">Operations Summary</h1>
               <div className="flex items-center gap-6">
@@ -101,7 +99,7 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
-            <div className={`p-8 border ${isPrintMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/10'}`}>
+            <div className={`p-8 border ${isPrintMode ? 'bg-slate-50 border-slate-200' : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10'}`}>
               <div className="flex items-center gap-3 mb-4 opacity-60">
                 <Clock size={16} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Capacity Burned</span>
@@ -109,7 +107,7 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
               <div className="text-4xl font-black mb-1">{burnedHours} <span className="text-lg opacity-40">HOURS</span></div>
               <p className="text-[10px] opacity-60 uppercase font-bold">Invested in production this week</p>
             </div>
-            <div className={`p-8 border ${isPrintMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/10'}`}>
+            <div className={`p-8 border ${isPrintMode ? 'bg-slate-50 border-slate-200' : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10'}`}>
               <div className="flex items-center gap-3 mb-4 opacity-60">
                 <CheckCircle2 size={16} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Items Shipped</span>
@@ -117,7 +115,7 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
               <div className="text-4xl font-black mb-1">{completedTasks.length} <span className="text-lg opacity-40">TASKS</span></div>
               <p className="text-[10px] opacity-60 uppercase font-bold">Successfully deployed to production</p>
             </div>
-            <div className={`p-8 border ${isPrintMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/10'}`}>
+            <div className={`p-8 border ${isPrintMode ? 'bg-slate-50 border-slate-200' : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10'}`}>
               <div className="flex items-center gap-3 mb-4 opacity-60">
                 <Target size={16} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Strategic Wins</span>
@@ -133,7 +131,7 @@ const WeeklyReportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
               <Sparkles size={18} className="text-amber-500" />
               <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-80">Executive Summary</h3>
             </div>
-            <div className={`p-10 text-xl font-medium leading-relaxed italic border-l-4 ${isPrintMode ? 'bg-slate-50 border-slate-300' : 'bg-white/5 border-neon-cyan/40'}`}>
+            <div className={`p-10 text-xl font-medium leading-relaxed italic border-l-4 ${isPrintMode ? 'bg-slate-50 border-slate-300' : 'bg-black/5 dark:bg-white/5 border-neon-cyan/40'}`}>
               {isGenerating ? (
                 <div className="flex items-center gap-4">
                   <Loader2 size={24} className="animate-spin text-neon-cyan" />
