@@ -16,7 +16,7 @@
     "mobile-drag-drop": "^3.0.0-rc.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "recharts": "2.12.7"
+    "recharts": "^2.15.4"
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
